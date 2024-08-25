@@ -219,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        displayOutput(resultText, "Ai");
+                        succesfull(resultText);
                     }
                 });
             }
@@ -236,6 +236,11 @@ public class MainActivity extends AppCompatActivity {
                 });
             }
         }, executor);
+    }
+
+    private void succesfull(String resultText) {
+        String output = String.valueOf(Formmatter.fromMarkdown(resultText));
+        displayOutput(output, "Ai");
     }
 
     class ChatMessage {
