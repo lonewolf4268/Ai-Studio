@@ -62,7 +62,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:onClick="uploadImage"
-                android:text="Upload File" />
+                android:text="Upload Image" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/sendButton"
