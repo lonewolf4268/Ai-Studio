@@ -6,6 +6,12 @@ android {
     namespace = "com.mrincredible.aistudio"
     compileSdk = 34
 
+    packaging {
+        dex {
+            useLegacyPackaging = false
+        }
+    }
+
     defaultConfig {
         applicationId = "com.mrincredible.aistudio"
         minSdk = 24
@@ -40,14 +46,9 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
     implementation(libs.text.recognition)
-    // add the dependency for the Google AI client SDK for Android
     implementation(libs.generativeai)
-    // Required for one-shot operations (to use `ListenableFuture` from Guava Android)
     implementation(libs.guava)
-    // Required for streaming operations (to use `Publisher` from Reactive Streams)
     implementation(libs.reactive.streams)
-//    implementation(libs.libraries.bom)
-//    implementation(libs.google.cloud.aiplatform)
-//    implementation(libs.cloud.google.cloud.aiplatform)
-//    implementation(libs.google.cloud.storage)
+    implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
+    implementation ("org.commonmark:commonmark:0.22.0")
 }

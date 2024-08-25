@@ -4,6 +4,8 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.text.Html;
+import android.text.Spanned;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -50,7 +52,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CODE_SELECT_PHOTO = 100;
     private List<ChatMessage> chatHistory = new ArrayList<>();
 
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -78,6 +79,8 @@ public class MainActivity extends AppCompatActivity {
 
         findViewById(R.id.uploadButton).setOnClickListener(this::uploadImage);
         findViewById(R.id.sendButton).setOnClickListener(this::sendMessage);
+
+        askGoogleAi("Hi");
     }
 
     private void processImage(Uri imageUri) {
@@ -94,7 +97,6 @@ public class MainActivity extends AppCompatActivity {
                     .addOnFailureListener(new OnFailureListener() {
                         @Override
                         public void onFailure(Exception e) {
-//                            System.out.println("Error processing image: " + e.getMessage());
                             Toast.makeText(MainActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                         }
                     });
@@ -115,7 +117,10 @@ public class MainActivity extends AppCompatActivity {
     public void sendMessage(View view) {
         String message = inputEditText.getText().toString();
         chatHistory.add(new ChatMessage("user", message));
-        displayOutput(message, "user");
+
+        Spanned formattedMessage = Html.fromHtml(message, Html.FROM_HTML_MODE_LEGACY);
+        displayOutput(formattedMessage, "user");
+
         askGoogleAi(buildContextualPrompt());
         inputEditText.setText("");
     }
@@ -129,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         return promptBuilder.toString();
     }
 
-    private void displayOutput(String message, String sender) {
+    private void displayOutput(Spanned message, String sender) {
         TextView textView = new TextView(getApplicationContext());
         textView.setText(sender + ": \n" + message);
 
@@ -137,8 +142,8 @@ public class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        int margin = 16; // Margin in dp
-        int padding = 12; // Padding in dp
+        int margin = 16;
+        int padding = 12;
         layoutParams.setMargins(sender.equals("user") ? margin * 4 : margin, margin,
                 sender.equals("user") ? margin : margin * 4, margin);
         textView.setLayoutParams(layoutParams);
@@ -147,11 +152,11 @@ public class MainActivity extends AppCompatActivity {
         // Styling
         if (sender.equals("user")) {
             textView.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_END);
-            textView.setBackgroundResource(R.drawable.user_message_background); // Assuming you have this drawable
+            textView.setBackgroundResource(R.drawable.user_message_background);
             textView.setTextColor(ContextCompat.getColor(this, android.R.color.white));
         } else {
             textView.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_START);
-            textView.setBackgroundResource(R.drawable.ai_message_background); // Assuming you have this drawable
+            textView.setBackgroundResource(R.drawable.ai_message_background);
             textView.setTextColor(ContextCompat.getColor(this, android.R.color.black));
         }
 
@@ -194,7 +199,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void askGoogleAi(String text) {
-        GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE");
+        // **IMPORTANT!** Replace with your actual API key
+        String apiKey = "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE";
+        GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", apiKey);
         GenerativeModelFutures model = GenerativeModelFutures.from(gm);
 
         Content content = new Content.Builder()
@@ -209,11 +216,15 @@ public class MainActivity extends AppCompatActivity {
                 String resultText = result.getText();
                 // Update chat history
                 chatHistory.add(new ChatMessage("ai", resultText));
+
+                // Format using CommonMark
+                Spanned formattedResponse = Formmatter.fromMarkdown(resultText);
+
                 // Update UI on the main thread
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        displayOutput(resultText, "ai");
+                        displayOutput(formattedResponse, "ai"); // Pass Spanned text
                     }
                 });
             }
@@ -225,7 +236,8 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        displayOutput(t.getMessage(), "app");
+                        Spanned errorMessage = Html.fromHtml(t.getMessage(), Html.FROM_HTML_MODE_LEGACY);
+                        displayOutput(errorMessage, "app");
                     }
                 });
             }
