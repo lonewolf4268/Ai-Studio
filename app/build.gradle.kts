@@ -7,9 +7,10 @@ android {
     compileSdk = 34
 
     packaging {
-        dex {
-            useLegacyPackaging = false
-        }
+//        dex {
+//            useLegacyPackaging = false
+//        }
+        resources.excludes.add("META-INF/*")
     }
 
     defaultConfig {
