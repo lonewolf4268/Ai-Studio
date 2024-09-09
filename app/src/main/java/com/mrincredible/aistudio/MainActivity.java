@@ -131,29 +131,32 @@ public class MainActivity extends AppCompatActivity {
         return promptBuilder.toString();
     }
 
-    private void displayOutput(String message, String sender) {
+    private void displayOutput(Object message, String sender) {
         TextView textView = new TextView(getApplicationContext());
-        textView.setText(sender + ":\t" + message);
 
-        // Layout Parameters for Padding and Margins
+        if (message instanceof Spanned) {
+            textView.setText((Spanned) message);
+        } else {
+            textView.setText(sender + ":\t" + message);
+        }
+
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        int margin = 16; // Margin in dp
-        int padding = 12; // Padding in dp
+        int margin = 16;
+        int padding = 12;
         layoutParams.setMargins(sender.equals("You") ? margin * 2 : margin, margin,
                 sender.equals("You") ? margin : margin * 2, margin);
         textView.setLayoutParams(layoutParams);
         textView.setPadding(padding, padding, padding, padding);
 
-        // Styling
         if (sender.equals("You")) {
             textView.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_START);
-            textView.setBackgroundResource(R.drawable.user_message_background); // Assuming you have this drawable
+            textView.setBackgroundResource(R.drawable.user_message_background);
             textView.setTextColor(ContextCompat.getColor(this, android.R.color.white));
         } else {
             textView.setTextAlignment(View.TEXT_ALIGNMENT_TEXT_START);
-            textView.setBackgroundResource(R.drawable.ai_message_background); // Assuming you have this drawable
+            textView.setBackgroundResource(R.drawable.ai_message_background);
             textView.setTextColor(ContextCompat.getColor(this, android.R.color.black));
         }
 
@@ -212,10 +215,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(GenerateContentResponse result) {
                 String resultText = result.getText();
-                // Update chat history
                 chatHistory.add(new ChatMessage("Ai", resultText));
 
-                // Update UI on the main thread
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -227,7 +228,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onFailure(Throwable t) {
                 t.printStackTrace();
-                // Update UI on the main thread
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -239,8 +239,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void succesfull(String resultText) {
-        String output = String.valueOf(Formmatter.fromMarkdown(resultText));
-        displayOutput(output, "Ai");
+        Spanned formattedText = Formmatter.fromMarkdown(resultText);
+        displayOutput(formattedText, "Ai");
     }
 
     class ChatMessage {
