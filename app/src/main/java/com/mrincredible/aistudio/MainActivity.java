@@ -10,7 +10,6 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -20,7 +19,6 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
-
 import com.google.ai.client.generativeai.GenerativeModel;
 import com.google.ai.client.generativeai.java.GenerativeModelFutures;
 import com.google.ai.client.generativeai.type.Content;
@@ -36,7 +34,6 @@ import com.google.mlkit.vision.text.Text;
 import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -199,8 +196,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void askGoogleAi(String text) {
-        // **IMPORTANT!** Replace with your actual API key
-        String apiKey = "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE";
+        String apiKey = "Api key";
         GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", apiKey);
         // MODELS: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro, aqa
         GenerativeModelFutures model = GenerativeModelFutures.from(gm);
