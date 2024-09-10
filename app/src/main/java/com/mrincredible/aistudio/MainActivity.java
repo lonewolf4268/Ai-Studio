@@ -5,8 +5,8 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Spanned;
+import android.util.Log; // Add Log class
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -81,13 +81,16 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void processImage(Uri imageUri) {
+        Log.d("ImagePicker", "processImage: Image URI " + imageUri); // Debug
         try {
             InputImage image = InputImage.fromFilePath(this, imageUri);
+            Log.d("ImagePicker", "processImage: InputImage created"); // Debug
             textRecognizer.process(image)
                     .addOnSuccessListener(new OnSuccessListener<Text>() {
                         @Override
                         public void onSuccess(Text visionText) {
                             String recognizedText = visionText.getText();
+                            Log.d("ImagePicker", "processImage: Text recognized"); // Debug
                             askGoogleAi(recognizedText);
                         }
                     })
@@ -169,14 +172,14 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void requestPhotoPickerPermission() {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED},
-                    REQUEST_CODE_SELECT_PHOTO);
-        } else {
-            // For Android versions before Tiramisu, no permission is needed
-            launchPhotoPicker();
-        }
+//        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+//            ActivityCompat.requestPermissions(this,
+//                    new String[]{Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED},
+//                    REQUEST_CODE_SELECT_PHOTO);
+//        } else {
+//            launchPhotoPicker();
+//        }
+        launchPhotoPicker();
     }
 
     private void launchPhotoPicker() {
@@ -190,13 +193,17 @@ public class MainActivity extends AppCompatActivity {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 launchPhotoPicker();
             } else {
-                Toast.makeText(this, "Permission denied to access photos.", Toast.LENGTH_SHORT).show();
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    launchPhotoPicker();
+                } else {
+                    Toast.makeText(this, "Permission denied to access photos.", Toast.LENGTH_SHORT).show();
+                }
             }
         }
     }
 
     public void askGoogleAi(String text) {
-        String apiKey = "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE";
+        String apiKey = "Api Key";
         GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", apiKey);
         // MODELS: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro, aqa
         GenerativeModelFutures model = GenerativeModelFutures.from(gm);

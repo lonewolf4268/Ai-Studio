@@ -12,7 +12,7 @@
         android:id="@+id/outputScrollView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/textInputLayout"
+        app:layout_constraintBottom_toTopOf="@+id/scrollView3"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
@@ -37,46 +37,54 @@
         android:contentDescription="Attach a file"
         app:icon="@drawable/baseline_attach_file_24"
         android:onClick="uploadImage"
-        app:layout_constraintBottom_toBottomOf="@+id/textInputLayout"
-        app:layout_constraintEnd_toStartOf="@+id/textInputLayout"
+        app:layout_constraintBottom_toBottomOf="@+id/scrollView3"
+        app:layout_constraintEnd_toStartOf="@+id/scrollView3"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/textInputLayout"
+        app:layout_constraintTop_toTopOf="@+id/scrollView3"
         tools:ignore="SpeakableTextPresentCheck" />
 
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/textInputLayout"
-        android:layout_width="282dp"
-        android:layout_height="58dp"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
+    <ScrollView
+        android:id="@+id/scrollView3"
+        android:layout_width="275dp"
+        android:layout_height="67dp"
+        android:layout_marginBottom="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.969"
-        android:layout_marginBottom="16dp" >
+        app:layout_constraintVertical_bias="0.969">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/inputEditText"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Enter text here"
-            android:maxHeight="200dp" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputEditText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="top"
+                android:hint="Enter text here"
+                android:maxHeight="200dp" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+    </ScrollView>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/sendButton"
         style="?attr/materialIconButtonFilledStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:contentDescription="Send message"
         android:layout_marginEnd="10dp"
-        app:icon="@drawable/baseline_arrow_circle_right_24"
+        android:contentDescription="Send message"
         android:onClick="sendMessage"
-        app:layout_constraintBottom_toBottomOf="@+id/textInputLayout"
+        app:icon="@drawable/baseline_arrow_circle_right_24"
+        app:layout_constraintBottom_toBottomOf="@+id/scrollView3"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toEndOf="@+id/textInputLayout"
-        app:layout_constraintTop_toTopOf="@+id/textInputLayout"
+        app:layout_constraintStart_toEndOf="@+id/scrollView3"
+        app:layout_constraintTop_toTopOf="@+id/scrollView3"
         tools:ignore="SpeakableTextPresentCheck" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
