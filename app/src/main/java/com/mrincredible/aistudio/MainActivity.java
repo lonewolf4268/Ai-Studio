@@ -81,17 +81,22 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void processImage(Uri imageUri) {
-        Log.d("ImagePicker", "processImage: Image URI " + imageUri); // Debug
         try {
             InputImage image = InputImage.fromFilePath(this, imageUri);
-            Log.d("ImagePicker", "processImage: InputImage created"); // Debug
             textRecognizer.process(image)
                     .addOnSuccessListener(new OnSuccessListener<Text>() {
                         @Override
                         public void onSuccess(Text visionText) {
                             String recognizedText = visionText.getText();
-                            Log.d("ImagePicker", "processImage: Text recognized"); // Debug
-                            askGoogleAi(recognizedText);
+                            if (!recognizedText.trim().equals("")) {
+                                chatHistory.add(new ChatMessage("You", recognizedText));
+                                displayOutput(recognizedText, "You");
+                                askGoogleAi(recognizedText);
+                                inputEditText.setText("");
+                            }
+                            else{
+                                Toast.makeText(MainActivity.this, "No text in Image", Toast.LENGTH_SHORT).show();
+                            }
                         }
                     })
                     .addOnFailureListener(new OnFailureListener() {
@@ -203,7 +208,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void askGoogleAi(String text) {
-        String apiKey = "Api Key";
+        String apiKey = "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE";
         GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", apiKey);
         // MODELS: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro, aqa
         GenerativeModelFutures model = GenerativeModelFutures.from(gm);
@@ -244,23 +249,5 @@ public class MainActivity extends AppCompatActivity {
     private void succesfull(String resultText) {
         Spanned formattedText = Formmatter.fromMarkdown(resultText);
         displayOutput(formattedText, "Ai");
-    }
-
-    class ChatMessage {
-        private String sender;
-        private String message;
-
-        public ChatMessage(String sender, String message) {
-            this.sender = sender;
-            this.message = message;
-        }
-
-        public String getSender() {
-            return sender;
-        }
-
-        public String getMessage() {
-            return message;
-        }
     }
 }
