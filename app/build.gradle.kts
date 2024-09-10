@@ -52,4 +52,5 @@ dependencies {
     implementation(libs.reactive.streams)
     implementation("com.vladsch.flexmark:flexmark-all:0.64.8")
     implementation ("org.commonmark:commonmark:0.22.0")
+//    implementation ("com.google.android.material:material:1.6.1")
 }

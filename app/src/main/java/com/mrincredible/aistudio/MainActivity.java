@@ -196,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void askGoogleAi(String text) {
-        String apiKey = "Api key";
+        String apiKey = "AIzaSyCYXYFBj0MdMIvTtHAe1CR0bUZClUnSyxE";
         GenerativeModel gm = new GenerativeModel("gemini-1.5-flash", apiKey);
         // MODELS: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro, aqa
         GenerativeModelFutures model = GenerativeModelFutures.from(gm);
