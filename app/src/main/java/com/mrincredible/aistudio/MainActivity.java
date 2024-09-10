@@ -5,7 +5,6 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Spanned;
-import android.util.Log; // Add Log class
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
