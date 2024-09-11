@@ -8,7 +8,6 @@ import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 
 public class Formmatter {
-
     public static Spanned fromMarkdown(String markdownText) {
         Parser parser = Parser.builder().build();
         HtmlRenderer renderer = HtmlRenderer.builder().build();
