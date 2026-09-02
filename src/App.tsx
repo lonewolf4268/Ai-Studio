@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { MessageItem } from './components/MessageItem';
 import { ChatInput } from './components/ChatInput';
 import { ChatMessage, ChatSession } from './types';
 import { recognizeTextFromImage, fileToBase64 } from './utils/ocr';
-import { Bot, MessageSquare, Plus, Trash2, X, Pencil, ArrowUp, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
+import { Bot, MessageSquare, Plus, Trash2, X, Pencil, ArrowDown, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
 
 function formatRelativeTime(timestamp: number): string {
   const diffInMs = Date.now() - timestamp;
@@ -139,7 +140,7 @@ export const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [attachments, setAttachments] = useState<import('./components/ChatInput').AttachmentState[]>([]);
 
-  const [showBackToTop, setShowBackToTop] = useState<boolean>(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false);
   const streamingTargetTextRef = useRef<Record<string, string>>({});
 
   // Typewriter smooth streaming effect
@@ -561,9 +562,9 @@ export const App: React.FC = () => {
     const target = e.currentTarget;
     const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
     if (scrollBottom > 280) {
-      setShowBackToTop(true);
+      setShowScrollToBottom(true);
     } else {
-      setShowBackToTop(false);
+      setShowScrollToBottom(false);
     }
   };
 
@@ -1000,17 +1001,19 @@ export const App: React.FC = () => {
 
             {/* List of active message components */}
             <div id="outputContainer" className="space-y-1">
-              {filteredMessages.map((message) => (
-                <MessageItem
-                  key={message.id}
-                  message={message}
-                  isDarkMode={isDarkMode}
-                  onReaction={handleReaction}
-                  onDelete={handleDeleteMessageItem}
-                  onRetry={handleRetryMessage}
-                  onSuggestionClick={handleSendMessage}
-                />
-              ))}
+              <AnimatePresence mode="popLayout">
+                {filteredMessages.map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    isDarkMode={isDarkMode}
+                    onReaction={handleReaction}
+                    onDelete={handleDeleteMessageItem}
+                    onRetry={handleRetryMessage}
+                    onSuggestionClick={handleSendMessage}
+                  />
+                ))}
+              </AnimatePresence>
             </div>
 
 
@@ -1018,19 +1021,16 @@ export const App: React.FC = () => {
           </div>
         </main>
 
-        {/* Floating Back to Top Button */}
-        {showBackToTop && (
+        {/* Floating Scroll to Bottom Button */}
+        {showScrollToBottom && (
           <button
             onClick={() => {
-              const scrollView = document.getElementById('outputScrollView');
-              if (scrollView) {
-                scrollView.scrollTo({ top: 0, behavior: 'smooth' });
-              }
+              scrollToBottom();
             }}
             className="fixed bottom-24 right-6 z-30 p-2.5 bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 rounded-full shadow-lg transition-all flex items-center justify-center hover:scale-108 active:scale-95"
-            title="Scroll to top"
+            title="Scroll to bottom"
           >
-            <ArrowUp className="w-4.5 h-4.5 stroke-[2.5px]" />
+            <ArrowDown className="w-4.5 h-4.5 stroke-[2.5px]" />
           </button>
         )}
 

@@ -16,7 +16,7 @@ interface MessageItemProps {
   onSuggestionClick?: (suggestion: string) => void;
 }
 
-const CodeBlock = ({ lang, codeContent, className, props }: any) => {
+const CodeBlock = ({ lang, codeContent, props }: any) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = async () => {
@@ -63,7 +63,7 @@ const CodeBlock = ({ lang, codeContent, className, props }: any) => {
   );
 };
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, onDelete, onRetry, onSuggestionClick }) => {
+export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({ message, onReaction, onDelete, onRetry, onSuggestionClick }, ref) => {
   const [showFullTime, setShowFullTime] = useState(false);
   const [copied, setCopied] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
@@ -126,8 +126,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, o
   if (isApp) {
     return (
       <motion.div
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
+        ref={ref}
+        layout
+        initial={{ opacity: 0, y: 15, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
         className="flex justify-center my-3 px-4"
       >
         <div className="flex items-center space-x-2.5 bg-red-50 dark:bg-red-950/20 border border-red-200/65 dark:border-red-900/30 text-red-700 dark:text-red-400 px-4 py-2.5 rounded-xl text-xs max-w-lg shadow-2xs">
@@ -140,9 +144,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, o
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.99 }}
+      ref={ref}
+      layout
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       className={`flex w-full my-4 group ${isUser ? 'justify-end' : 'justify-start'}`}
     >
       <div className={`flex items-start max-w-[90%] sm:max-w-[82%] space-x-3.5 ${isUser ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
@@ -414,4 +421,4 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, o
       </AnimatePresence>
     </motion.div>
   );
-};
+});
