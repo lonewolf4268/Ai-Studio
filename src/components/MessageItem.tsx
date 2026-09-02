@@ -4,18 +4,8 @@ import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertCircle, FileText, CheckCircle2, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, Trash2, Sparkles, User, RefreshCw } from 'lucide-react';
 import { ChatMessage } from '../types';
-import Prism from 'prismjs';
-import 'prismjs/themes/prism-tomorrow.css';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-jsx';
-import 'prismjs/components/prism-tsx';
-import 'prismjs/components/prism-python';
-import 'prismjs/components/prism-json';
-import 'prismjs/components/prism-bash';
-import 'prismjs/components/prism-css';
-import 'prismjs/components/prism-markup';
-import 'prismjs/components/prism-sql';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -26,7 +16,7 @@ interface MessageItemProps {
   onSuggestionClick?: (suggestion: string) => void;
 }
 
-const CodeBlock = ({ lang, codeContent, className, props, highlighted }: any) => {
+const CodeBlock = ({ lang, codeContent, className, props }: any) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = async () => {
@@ -40,27 +30,35 @@ const CodeBlock = ({ lang, codeContent, className, props, highlighted }: any) =>
   };
 
   return (
-    <div className="relative group/code my-3 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-900 text-slate-100 text-xs font-mono shadow-sm">
-      <div className="flex items-center justify-between px-3.5 py-2 bg-slate-950 text-slate-400 text-[10px] border-b border-slate-800">
+    <div className="relative group/code my-3 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-[#1e1e1e] text-slate-100 text-xs shadow-sm">
+      <div className="flex items-center justify-between px-3.5 py-2 bg-black/40 text-slate-400 text-[10px] border-b border-slate-800/50">
         <span className="uppercase font-bold tracking-wider text-cyan-400">
           {lang}
         </span>
         <button
           onClick={handleCopyCode}
-          className="hover:text-white flex items-center space-x-1 transition-colors bg-slate-900 px-2 py-0.5 rounded border border-slate-800"
+          className="hover:text-white flex items-center space-x-1 transition-colors bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded border border-white/10"
           title={copied ? "Copied!" : "Copy snippet"}
         >
           {copied ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
           <span className={copied ? "text-emerald-500" : ""}>{copied ? "Copied!" : "Copy"}</span>
         </button>
       </div>
-      <pre className="p-4 overflow-x-auto m-0 bg-transparent text-slate-200 leading-relaxed">
-        <code
-          className={className}
-          dangerouslySetInnerHTML={{ __html: highlighted }}
+      <div className="text-[13px] leading-relaxed">
+        <SyntaxHighlighter
+          language={lang}
+          style={vscDarkPlus}
+          PreTag="div"
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            background: 'transparent',
+          }}
           {...props}
-        />
-      </pre>
+        >
+          {codeContent}
+        </SyntaxHighlighter>
+      </div>
     </div>
   );
 };
@@ -256,27 +254,18 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, o
                       if (!inline && match) {
                         const lang = match[1];
                         const codeContent = String(children).replace(/\n$/, '');
-                        let highlighted = codeContent;
-                        try {
-                          if (Prism.languages[lang]) {
-                            highlighted = Prism.highlight(codeContent, Prism.languages[lang], lang);
-                          }
-                        } catch (e) {
-                          console.error('Prism highlighting error:', e);
-                        }
 
                         return (
                           <CodeBlock
                             lang={lang}
                             codeContent={codeContent}
                             className={className}
-                            highlighted={highlighted}
                             props={props}
                           />
                         );
                       }
                       return (
-                        <code className={className} {...props}>
+                        <code className={`inline-code ${className || ''}`} {...props}>
                           {children}
                         </code>
                       );
