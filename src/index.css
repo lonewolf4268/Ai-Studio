@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply bg-[#F4F6F9] dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Markdown styling inside AI messages */
+.markdown-body {
+  @apply text-sm leading-relaxed text-gray-900 dark:text-gray-100 space-y-2.5;
+}
+
+.markdown-body p {
+  @apply my-1 leading-relaxed;
+}
+
+.markdown-body p:first-child {
+  @apply mt-0;
+}
+
+.markdown-body p:last-child {
+  @apply mb-0;
+}
+
+.markdown-body ul {
+  @apply list-disc list-inside space-y-1 my-1.5 pl-1;
+}
+
+.markdown-body ol {
+  @apply list-decimal list-inside space-y-1 my-1.5 pl-1;
+}
+
+.markdown-body li {
+  @apply leading-normal;
+}
+
+.markdown-body strong {
+  @apply font-semibold text-gray-900 dark:text-gray-100;
+}
+
+.markdown-body em {
+  @apply italic;
+}
+
+.markdown-body code {
+  @apply font-mono text-xs bg-black/10 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-800 dark:text-cyan-300 border border-gray-200/20 dark:border-gray-700/60;
+}
+
+.markdown-body pre {
+  @apply bg-gray-900 dark:bg-gray-900 text-gray-100 p-3.5 rounded-xl overflow-x-auto my-2.5 text-xs font-mono border border-gray-200/10 dark:border-gray-700 shadow-sm;
+}
+
+.markdown-body pre code {
+  @apply bg-transparent text-gray-100 dark:text-gray-200 p-0 border-0;
+}
+
+.markdown-body blockquote {
+  @apply border-l-3 border-gray-400 dark:border-blue-500 pl-3.5 italic text-gray-700 dark:text-gray-300 my-2.5 bg-gray-50/50 dark:bg-gray-900/50 py-1.5 rounded-r-lg;
+}
+
+.markdown-body h1 {
+  @apply text-lg font-bold text-gray-900 dark:text-white mt-3.5 mb-1.5 tracking-tight border-b border-gray-200 dark:border-gray-800 pb-1;
+}
+
+.markdown-body h2 {
+  @apply text-base font-bold text-gray-900 dark:text-gray-100 mt-3 mb-1 tracking-tight;
+}
+
+.markdown-body h3 {
+  @apply text-sm font-semibold text-gray-900 dark:text-gray-200 mt-2.5 mb-1;
+}
+
+.markdown-body a {
+  @apply text-blue-600 dark:text-blue-400 underline hover:text-blue-800 dark:hover:text-blue-300;
+}
+
+.markdown-body table {
+  @apply w-full text-left border-collapse my-2 text-xs;
+}
+
+.markdown-body th, .markdown-body td {
+  @apply border border-gray-300 dark:border-gray-700 p-1.5;
+}
+
+.markdown-body th {
+  @apply bg-gray-200 dark:bg-gray-800 font-semibold text-gray-900 dark:text-gray-200;
+}
+

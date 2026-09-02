@@ -1,0 +1,6 @@
+{
+  "name": "AI Studio",
+  "description": "An AI chatbot with OCR image text extraction and markdown formatting.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
