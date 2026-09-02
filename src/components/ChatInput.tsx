@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Paperclip, ArrowUp, Loader2, X, Image as ImageIcon, Mic, MicOff, Eye, Keyboard, Camera, FileIcon } from 'lucide-react';
+import { Paperclip, ArrowUp, Loader2, X, Image as ImageIcon, Mic, MicOff, Eye, Keyboard, Camera, FileIcon, Square } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -13,6 +13,7 @@ export interface AttachmentState {
 
 interface ChatInputProps {
   onSendMessage: (text: string) => void;
+  onStopGeneration: () => void;
   onFilesSelected: (files: FileList | File[]) => void;
   isLoading: boolean;
   attachments: AttachmentState[];
@@ -23,6 +24,7 @@ interface ChatInputProps {
 
 export const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
+  onStopGeneration,
   onFilesSelected,
   isLoading,
   attachments,
@@ -353,14 +355,18 @@ export const ChatInput: React.FC<ChatInputProps> = ({
               {/* Send Button styled with dynamic background states */}
               <button
                 id="sendButton"
-                type="submit"
-                title="Send instruction"
-                disabled={isLoading || isOcrProcessing || (!text.trim() && attachments.length === 0)}
-                onClick={handleSubmit}
-                className="p-1.5 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 transition-all disabled:opacity-25 disabled:cursor-not-allowed flex items-center justify-center shadow-xs hover:scale-102 active:scale-98"
+                type="button"
+                title={isLoading ? 'Stop generating' : 'Send instruction'}
+                disabled={isOcrProcessing || (!isLoading && !text.trim() && attachments.length === 0)}
+                onClick={isLoading ? onStopGeneration : handleSubmit}
+                className={`p-1.5 rounded-xl transition-all text-white flex items-center justify-center shadow-xs hover:scale-102 active:scale-98 disabled:opacity-25 disabled:cursor-not-allowed ${
+                  isLoading
+                    ? 'bg-rose-600 hover:bg-rose-500'
+                    : 'bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white dark:text-slate-900'
+                }`}
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Square className="w-3.5 h-3.5 fill-current" />
                 ) : (
                   <ArrowUp className="w-4 h-4 stroke-[2.5px]" />
                 )}

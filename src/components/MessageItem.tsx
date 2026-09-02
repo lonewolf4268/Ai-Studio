@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertCircle, FileText, CheckCircle2, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, Trash2, Sparkles, User, RefreshCw } from 'lucide-react';
+import { AlertCircle, FileText, CheckCircle2, Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, Trash2, Sparkles, User, RefreshCw, Pencil } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -13,6 +13,7 @@ interface MessageItemProps {
   onReaction?: (messageId: string, reaction: 'thumbs-up' | 'thumbs-down' | undefined) => void;
   onDelete?: (messageId: string) => void;
   onRetry?: (messageId: string) => void;
+  onEdit?: (messageId: string, text: string) => void;
   onSuggestionClick?: (suggestion: string) => void;
 }
 
@@ -63,9 +64,11 @@ const CodeBlock = ({ lang, codeContent, props }: any) => {
   );
 };
 
-export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({ message, onReaction, onDelete, onRetry, onSuggestionClick }, ref) => {
+export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({ message, onReaction, onDelete, onRetry, onEdit, onSuggestionClick }, ref) => {
   const [showFullTime, setShowFullTime] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedText, setEditedText] = useState(message.message);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number } | null>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   
@@ -238,7 +241,40 @@ export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({
             )}
 
             {/* Content Formatting */}
-            {isUser ? (
+            {isUser && isEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={editedText}
+                  onChange={(event) => setEditedText(event.target.value)}
+                  autoFocus
+                  rows={Math.min(8, Math.max(2, editedText.split('\n').length))}
+                  className="w-full resize-y rounded-lg border border-slate-600 bg-slate-800/80 px-2.5 py-2 text-sm text-slate-100 outline-none focus:border-blue-400"
+                />
+                <div className="flex justify-end gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditedText(message.message);
+                      setIsEditing(false);
+                    }}
+                    className="rounded-lg px-2.5 py-1 text-slate-300 hover:bg-white/10"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!editedText.trim()}
+                    onClick={() => {
+                      onEdit?.(message.id, editedText);
+                      setIsEditing(false);
+                    }}
+                    className="rounded-lg bg-blue-500 px-2.5 py-1 font-semibold text-white hover:bg-blue-400 disabled:opacity-50"
+                  >
+                    Save & resend
+                  </button>
+                </div>
+              </div>
+            ) : isUser ? (
               <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                 {message.message}
               </div>
@@ -294,6 +330,19 @@ export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({
             >
               {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
+
+            {isUser && onEdit && (
+              <button
+                onClick={() => {
+                  setEditedText(message.message);
+                  setIsEditing(true);
+                }}
+                title="Edit and resend prompt"
+                className="p-1 text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-100 dark:hover:bg-slate-900 rounded-md transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+            )}
             
             {!isUser && (
               <>
@@ -401,7 +450,20 @@ export const MessageItem = React.forwardRef<HTMLDivElement, MessageItemProps>(({
                 className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center space-x-2 transition-colors font-medium"
               >
                 <RotateCcw className="w-4 h-4 text-blue-500" />
-                <span>Retry prompt</span>
+                <span>{isUser ? 'Resend prompt' : 'Regenerate reply'}</span>
+              </button>
+            )}
+            {isUser && onEdit && (
+              <button
+                onClick={() => {
+                  setEditedText(message.message);
+                  setIsEditing(true);
+                  setContextMenu(null);
+                }}
+                className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center space-x-2 transition-colors font-medium"
+              >
+                <Pencil className="w-4 h-4 text-blue-500" />
+                <span>Edit and resend</span>
               </button>
             )}
             {onDelete && (

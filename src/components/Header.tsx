@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Trash2, Sun, Moon, Download, FileText, FileCode, Menu, Search, X, BookOpen, ArrowDownCircle, Pin } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { Trash2, Sun, Moon, Download, FileText, FileCode, Menu, Search, X, BookOpen, ArrowDownCircle, Pin, Server } from 'lucide-react';
 
 interface HeaderProps {
   onClearChat: () => void;
@@ -7,6 +7,8 @@ interface HeaderProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onExport: (format: 'md' | 'txt') => void;
+  onExportWorkspace: () => void;
+  onImportWorkspace: (file: File) => void;
   onOpenDrawer: () => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
@@ -18,6 +20,7 @@ interface HeaderProps {
   sessionCategory?: string;
   sessionPinned?: boolean;
   onTogglePin?: () => void;
+  onOpenServerSettings?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +29,8 @@ export const Header: React.FC<HeaderProps> = ({
   isDarkMode,
   onToggleDarkMode,
   onExport,
+  onExportWorkspace,
+  onImportWorkspace,
   onOpenDrawer,
   searchQuery,
   onSearchChange,
@@ -36,9 +41,11 @@ export const Header: React.FC<HeaderProps> = ({
   sessionCategory = 'General',
   sessionPinned = false,
   onTogglePin,
+  onOpenServerSettings,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const importWorkspaceInputRef = useRef<HTMLInputElement>(null);
 
   // Category specific color mapping for a highly refined accent feel
   const getCategoryColor = (cat: string) => {
@@ -55,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-900 px-4 py-2.5 flex items-center justify-between transition-colors">
+    <header className="sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-900 px-4 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 flex items-center justify-between transition-colors">
       <div className="flex items-center space-x-3 min-w-0 flex-1">
         <button
           onClick={onOpenDrawer}
@@ -154,13 +161,12 @@ export const Header: React.FC<HeaderProps> = ({
           <ArrowDownCircle className="w-4 h-4" />
         </button>
 
-        {/* Export transcript */}
-        {messageCount > 0 && (
-          <div className="relative">
+        {/* Export and workspace backup */}
+        <div className="relative">
             <button
               id="export-chat-btn"
               onClick={() => setShowExportMenu(!showExportMenu)}
-              title="Export chat transcript"
+               title="Export or backup workspace"
               className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
@@ -169,34 +175,82 @@ export const Header: React.FC<HeaderProps> = ({
             {showExportMenu && (
               <>
                 <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-30">
+                <div className="absolute right-0 mt-1.5 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-30">
+                  {messageCount > 0 && (
+                    <>
+                      <button
+                        onClick={() => {
+                          onExport('md');
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
+                      >
+                        <FileCode className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="font-medium">Export Markdown (.md)</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          onExport('txt');
+                          setShowExportMenu(false);
+                        }}
+                        className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="font-medium">Export Plain Text (.txt)</span>
+                      </button>
+                    </>
+                  )}
+                  <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
                   <button
                     onClick={() => {
-                      onExport('md');
+                      onExportWorkspace();
                       setShowExportMenu(false);
                     }}
                     className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
                   >
-                    <FileCode className="w-3.5 h-3.5 text-blue-500" />
-                    <span className="font-medium">Export Markdown (.md)</span>
+                    <Download className="w-3.5 h-3.5 text-violet-500" />
+                    <span className="font-medium">Backup Workspace (.json)</span>
                   </button>
                   <button
                     onClick={() => {
-                      onExport('txt');
+                      importWorkspaceInputRef.current?.click();
                       setShowExportMenu(false);
                     }}
                     className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
                   >
-                    <FileText className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="font-medium">Export Plain Text (.txt)</span>
+                    <FileText className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="font-medium">Restore Workspace (.json)</span>
                   </button>
                 </div>
               </>
             )}
-          </div>
-        )}
+        </div>
+
+        <input
+          ref={importWorkspaceInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) onImportWorkspace(file);
+            event.target.value = '';
+          }}
+        />
 
         <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800" />
+
+        {/* Server connection settings */}
+        {onOpenServerSettings && (
+          <button
+            id="server-settings-btn"
+            onClick={onOpenServerSettings}
+            title="Backend Server Settings"
+            className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
+          >
+            <Server className="w-4 h-4 text-blue-500" />
+          </button>
+        )}
 
         {/* Dark mode toggle */}
         <button

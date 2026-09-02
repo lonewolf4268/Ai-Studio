@@ -3,8 +3,13 @@ import { AnimatePresence } from 'motion/react';
 import { Header } from './components/Header';
 import { MessageItem } from './components/MessageItem';
 import { ChatInput } from './components/ChatInput';
-import { ChatMessage, ChatSession } from './types';
+import { ServerSettingsModal } from './components/ServerSettingsModal';
+import { Attachment, ChatMessage, ChatSession } from './types';
 import { recognizeTextFromImage, fileToBase64 } from './utils/ocr';
+import { getEffectiveApiUrl, isNativeApp } from './utils/api';
+import { blobToDataUrl, loadAttachment, saveAttachment } from './utils/attachmentStore';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar } from '@capacitor/status-bar';
 import { Bot, MessageSquare, Plus, Trash2, X, Pencil, ArrowDown, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
 
 function formatRelativeTime(timestamp: number): string {
@@ -55,7 +60,39 @@ export const App: React.FC = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState<boolean>(false);
+  const [isServerSettingsOpen, setIsServerSettingsOpen] = useState<boolean>(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [inputMessageText, setInputMessageText] = useState<string>('');
+
+  // Handle native Android hardware back button & status bar
+  useEffect(() => {
+    if (!isNativeApp()) return;
+
+    let cleanup: (() => void) | undefined;
+    CapApp.addListener('backButton', ({ canGoBack }) => {
+      if (isServerSettingsOpen) {
+        setIsServerSettingsOpen(false);
+      } else if (isTemplatesOpen) {
+        setIsTemplatesOpen(false);
+      } else if (isMobileDrawerOpen) {
+        setIsMobileDrawerOpen(false);
+      } else if (canGoBack) {
+        window.history.back();
+      } else {
+        CapApp.exitApp();
+      }
+    }).then((handle) => {
+      cleanup = () => handle.remove();
+    });
+
+    try {
+      StatusBar.setOverlaysWebView({ overlay: false });
+    } catch (e) {}
+
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [isServerSettingsOpen, isTemplatesOpen, isMobileDrawerOpen]);
 
   // Sidebar responsive desktop view
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
@@ -135,13 +172,61 @@ export const App: React.FC = () => {
   }, [sessions]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
   
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [attachments, setAttachments] = useState<import('./components/ChatInput').AttachmentState[]>([]);
 
   const [showScrollToBottom, setShowScrollToBottom] = useState<boolean>(false);
   const streamingTargetTextRef = useRef<Record<string, string>>({});
+  const attachmentHydrationVersionRef = useRef(0);
+
+  // Recreate attachment object URLs after a reload. New uploads are kept in
+  // IndexedDB while the session metadata remains lightweight in localStorage.
+  useEffect(() => {
+    let isActive = true;
+    const hydrationVersion = ++attachmentHydrationVersionRef.current;
+
+    const restoreAttachments = async () => {
+      const restoredSessions = await Promise.all(
+        sessions.map(async (session) => {
+          let changed = false;
+          const restoredMessages = await Promise.all(
+            session.messages.map(async (message) => {
+              if (!message.attachments?.length) return message;
+
+              const restoredAttachments = await Promise.all(
+                message.attachments.map(async (attachment) => {
+                  if (!attachment.storageKey) return attachment;
+                  const blob = await loadAttachment(attachment.storageKey);
+                  if (!blob) return attachment;
+                  changed = true;
+                  return { ...attachment, uri: URL.createObjectURL(blob) };
+                })
+              );
+
+              return changed ? { ...message, attachments: restoredAttachments } : message;
+            })
+          );
+
+          return changed ? { ...session, messages: restoredMessages } : session;
+        })
+      );
+
+      if (
+        isActive &&
+        hydrationVersion === attachmentHydrationVersionRef.current &&
+        restoredSessions.some((session, index) => session !== sessions[index])
+      ) {
+        setSessions(restoredSessions);
+      }
+    };
+
+    void restoreAttachments();
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   // Typewriter smooth streaming effect
   useEffect(() => {
@@ -223,6 +308,135 @@ export const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleExportWorkspace = async () => {
+    const exportSessions = await Promise.all(
+      sessions.map(async (session) => ({
+        ...session,
+        messages: await Promise.all(
+          session.messages.map(async (message) => ({
+            ...message,
+            attachments: message.attachments
+              ? await Promise.all(
+                  message.attachments.map(async (attachment) => {
+                    const apiAttachment = await getApiAttachment(attachment);
+                    return {
+                      ...attachment,
+                      // Backups contain self-contained data URLs and never
+                      // depend on this browser's object URL lifetime.
+                      uri: apiAttachment?.data || attachment.uri,
+                      storageKey: undefined,
+                    };
+                  })
+                )
+              : undefined,
+          }))
+        ),
+      }))
+    );
+
+    const backup = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      sessions: exportSessions,
+      promptTemplates,
+      settings: {
+        isDarkMode,
+        autoScroll,
+        isSidebarCollapsed,
+      },
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ai-studio-workspace-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportWorkspace = async (file: File) => {
+    try {
+      activeAbortControllerRef.current?.abort();
+      attachmentHydrationVersionRef.current += 1;
+      const parsed = JSON.parse(await file.text()) as any;
+      if (!Array.isArray(parsed.sessions)) {
+        throw new Error('This file does not contain an AI Studio workspace.');
+      }
+
+      const importedSessions: ChatSession[] = parsed.sessions
+        .filter((session: any) => session && Array.isArray(session.messages))
+        .map((session: any, sessionIndex: number) => ({
+          id: typeof session.id === 'string' ? session.id : `session-${Date.now()}-${sessionIndex}`,
+          title: typeof session.title === 'string' && session.title.trim() ? session.title : 'New Chat',
+          createdAt: Number.isFinite(Number(session.createdAt)) ? Number(session.createdAt) : Date.now(),
+          updatedAt: Number.isFinite(Number(session.updatedAt)) ? Number(session.updatedAt) : undefined,
+          pinned: Boolean(session.pinned),
+          category: typeof session.category === 'string' ? session.category : 'General',
+          tags: Array.isArray(session.tags) ? session.tags.filter((tag: any) => typeof tag === 'string') : [],
+          messages: session.messages
+            .filter((message: any) =>
+              message &&
+              ['You', 'Ai', 'App'].includes(message.sender) &&
+              typeof message.message === 'string'
+            )
+            .map((message: any) => ({
+              id: typeof message.id === 'string' ? message.id : `message-${Date.now()}-${Math.random()}`,
+              sender: message.sender,
+              message: message.message,
+              timestamp: typeof message.timestamp === 'string' ? message.timestamp : '',
+              imageUri: typeof message.imageUri === 'string' ? message.imageUri : undefined,
+              extractedText: typeof message.extractedText === 'string' ? message.extractedText : undefined,
+              reaction: ['thumbs-up', 'thumbs-down'].includes(message.reaction) ? message.reaction : undefined,
+              suggestions: Array.isArray(message.suggestions)
+                ? message.suggestions.filter((suggestion: any) => typeof suggestion === 'string')
+                : undefined,
+              attachments: Array.isArray(message.attachments)
+                ? message.attachments
+                    .filter((attachment: any) =>
+                      attachment &&
+                      typeof attachment.uri === 'string' &&
+                      typeof attachment.mimeType === 'string' &&
+                      typeof attachment.name === 'string'
+                    )
+                    .map((attachment: any) => ({
+                      uri: attachment.uri,
+                      mimeType: attachment.mimeType,
+                      name: attachment.name,
+                      extractedText: typeof attachment.extractedText === 'string' ? attachment.extractedText : undefined,
+                    }))
+                : undefined,
+            })),
+        }));
+
+      if (importedSessions.length === 0) {
+        throw new Error('The workspace backup contains no valid chat sessions.');
+      }
+
+      setSessions(importedSessions);
+      setCurrentSessionId(importedSessions[0].id);
+      setPromptTemplates(
+        Array.isArray(parsed.promptTemplates)
+          ? parsed.promptTemplates.filter((template: any) =>
+              template && typeof template.id === 'string' && typeof template.title === 'string' && typeof template.prompt === 'string'
+            )
+          : []
+      );
+      if (typeof parsed.settings?.isDarkMode === 'boolean') setIsDarkMode(parsed.settings.isDarkMode);
+      if (typeof parsed.settings?.autoScroll === 'boolean') setAutoScroll(parsed.settings.autoScroll);
+      if (typeof parsed.settings?.isSidebarCollapsed === 'boolean') setIsSidebarCollapsed(parsed.settings.isSidebarCollapsed);
+      setSearchQuery('');
+      setSessionsFilterQuery('');
+      setAttachments([]);
+      isInitialGreetingSent.current = {};
+      alert('Workspace restored successfully.');
+    } catch (error: any) {
+      console.error('Workspace import failed:', error);
+      alert(error?.message || 'Could not restore this workspace backup.');
+    }
+  };
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isInitialGreetingSent = useRef<Record<string, boolean>>({});
 
@@ -268,8 +482,11 @@ export const App: React.FC = () => {
     directPrompt?: string
   ) => {
     setIsLoading(true);
+    const abortController = new AbortController();
+    activeAbortControllerRef.current = abortController;
     const aiMessageId = `ai-${Date.now()}`;
     const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let accumulatedText = '';
 
     // Add placeholder AI message for real-time streaming updates
     setMessages((prev) => [
@@ -284,20 +501,23 @@ export const App: React.FC = () => {
 
     try {
       const payload: any = {};
-      
+
+      // Keep conversation context even for multimodal requests so that
+      // regenerating an image/file response still has the prior turns.
+      payload.history = fullHistory
+        .filter((m) => m.sender === 'You' || m.sender === 'Ai')
+        .map((m) => ({ sender: m.sender, message: m.message }));
+
       if (attachmentsData && attachmentsData.length > 0) {
         payload.attachments = attachmentsData;
         payload.prompt = directPrompt || 'Describe this content or extract text.';
-      } else {
-        payload.history = fullHistory
-          .filter((m) => m.sender === 'You' || m.sender === 'Ai')
-          .map((m) => ({ sender: m.sender, message: m.message }));
       }
 
-      const response = await fetch('/api/chat', {
+      const response = await fetch(getEffectiveApiUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortController.signal,
       });
 
       if (!response.ok) {
@@ -311,7 +531,6 @@ export const App: React.FC = () => {
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedText = '';
       let buffer = '';
 
       while (true) {
@@ -329,17 +548,20 @@ export const App: React.FC = () => {
             if (dataStr === '[DONE]') {
               break;
             }
+
+            let parsed: { text?: string; error?: string };
             try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-              if (parsed.text) {
-                accumulatedText += parsed.text;
-                streamingTargetTextRef.current[aiMessageId] = accumulatedText;
-              }
+              parsed = JSON.parse(dataStr);
             } catch (e) {
               // Ignore non-json or malformed chunk lines
+              continue;
+            }
+            if (parsed.error) {
+              throw new Error(parsed.error);
+            }
+            if (parsed.text) {
+              accumulatedText += parsed.text;
+              streamingTargetTextRef.current[aiMessageId] = accumulatedText;
             }
           }
         }
@@ -351,7 +573,7 @@ export const App: React.FC = () => {
 
       // Fetch quick-follow-up suggestions
       try {
-        const suggRes = await fetch('/api/suggestions', {
+        const suggRes = await fetch(getEffectiveApiUrl('/api/suggestions'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -362,6 +584,7 @@ export const App: React.FC = () => {
               timestamp
             })
           }),
+          signal: abortController.signal,
         });
         if (suggRes.ok) {
           const { suggestions } = await suggRes.json();
@@ -375,6 +598,18 @@ export const App: React.FC = () => {
         console.error('Failed to fetch suggestions:', suggErr);
       }
     } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        // Preserve any partial answer instead of showing a connection error.
+        setMessages((prev) => {
+          const stoppedText = accumulatedText || 'Generation stopped.';
+          return prev.map((message) =>
+            message.id === aiMessageId ? { ...message, message: stoppedText } : message
+          );
+        });
+        streamingTargetTextRef.current[aiMessageId] = accumulatedText || 'Generation stopped.';
+        return;
+      }
+
       console.error('AI query error:', err);
       setMessages((prev) => {
         const filtered = prev.filter((m) => m.id !== aiMessageId);
@@ -389,8 +624,15 @@ export const App: React.FC = () => {
         ];
       });
     } finally {
+      if (activeAbortControllerRef.current === abortController) {
+        activeAbortControllerRef.current = null;
+      }
       setIsLoading(false);
     }
+  };
+
+  const stopGeneration = () => {
+    activeAbortControllerRef.current?.abort();
   };
 
   // Handle file uploads & OCR processing
@@ -429,24 +671,63 @@ export const App: React.FC = () => {
     });
   };
 
+  const getApiAttachment = async (attachment: Attachment) => {
+    let data = attachment.uri;
+
+    if (attachment.storageKey) {
+      const storedBlob = await loadAttachment(attachment.storageKey);
+      if (storedBlob) data = await blobToDataUrl(storedBlob);
+    }
+
+    // This also supports attachments imported from a workspace backup.
+    if (!data.startsWith('data:') && data.startsWith('blob:')) {
+      try {
+        const response = await fetch(data);
+        data = await blobToDataUrl(await response.blob());
+      } catch (error) {
+        console.warn('Could not read attachment for retry:', error);
+      }
+    }
+
+    if (!data.startsWith('data:')) return null;
+    return { data, mimeType: attachment.mimeType, name: attachment.name };
+  };
+
+  const getApiAttachments = async (attachments?: Attachment[]) => {
+    if (!attachments?.length) return [];
+    const restored = await Promise.all(attachments.map(getApiAttachment));
+    return restored.filter((attachment): attachment is NonNullable<typeof attachment> => attachment !== null);
+  };
+
   // Handle message sending
   const handleSendMessage = async (userText: string) => {
     let finalUserText = userText;
-    
-    // We will build a list of attachments to send to the server
-    const messageAttachments = [];
-    const chatMessageAttachments = [];
 
-    for (const attachment of attachments) {
+    // We will build a list of attachments to send to the server
+    const messageAttachments: { data: string; mimeType: string; name: string }[] = [];
+    const chatMessageAttachments: Attachment[] = [];
+    const newUserMessageId = `user-${Date.now()}`;
+
+    for (const [index, attachment] of attachments.entries()) {
       try {
         const { base64, mimeType } = await fileToBase64(attachment.file);
         messageAttachments.push({ data: base64, mimeType, name: attachment.file.name });
+
+        const storageKey = `${currentSessionId}/${newUserMessageId}/${index}`;
+        const stored = await saveAttachment(storageKey, attachment.file);
         chatMessageAttachments.push({ 
           uri: attachment.previewUrl, 
           mimeType, 
           name: attachment.file.name,
-          extractedText: attachment.ocrText 
+          extractedText: attachment.ocrText,
+          storageKey: stored ? storageKey : undefined,
         });
+
+        // Keep a durable fallback when IndexedDB is unavailable (for example,
+        // in a restricted private browsing context).
+        if (!stored) {
+          chatMessageAttachments[chatMessageAttachments.length - 1].uri = base64;
+        }
       } catch (e) {
         console.error('Failed to convert file to base64', e);
       }
@@ -462,7 +743,7 @@ export const App: React.FC = () => {
     }
 
     const newUserMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: newUserMessageId,
       sender: 'You',
       message: finalUserText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -480,6 +761,7 @@ export const App: React.FC = () => {
   };
 
   const handleClearChat = () => {
+    activeAbortControllerRef.current?.abort();
     setMessages([]);
     setAttachments([]);
   };
@@ -494,22 +776,53 @@ export const App: React.FC = () => {
     setMessages((prev) => prev.filter((m) => m.id !== messageId));
   };
 
-  const handleRetryMessage = (messageId: string) => {
+  const handleEditMessage = async (messageId: string, nextText: string) => {
+    if (isLoading || !nextText.trim()) return;
+
+    const messageIndex = messages.findIndex((message) => message.id === messageId);
+    const originalMessage = messages[messageIndex];
+    if (messageIndex < 0 || !originalMessage || originalMessage.sender !== 'You') return;
+
+    const editedMessage: ChatMessage = {
+      ...originalMessage,
+      message: nextText.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      suggestions: undefined,
+    };
+    const updatedHistory = [
+      ...messages.slice(0, messageIndex).map((message) => ({ ...message, suggestions: undefined })),
+      editedMessage,
+    ];
+
+    setMessages(updatedHistory);
+    setAttachments([]);
+    const apiAttachments = await getApiAttachments(originalMessage.attachments);
+    await askGoogleAi(updatedHistory, apiAttachments.length > 0 ? apiAttachments : undefined, editedMessage.message);
+  };
+
+  const handleRetryMessage = async (messageId: string) => {
+    if (isLoading) return;
     const msg = messages.find((m) => m.id === messageId);
     if (!msg) return;
 
-    let textToRetry = msg.message;
-    if (msg.sender === 'App') {
-      const msgIndex = messages.findIndex((m) => m.id === messageId);
-      const prevUserMsg = [...messages]
-        .slice(0, msgIndex)
-        .reverse()
-        .find((m) => m.sender === 'You');
-      if (prevUserMsg) {
-        textToRetry = prevUserMsg.message;
-      }
+    if (msg.sender === 'You') {
+      await handleEditMessage(msg.id, msg.message);
+      return;
     }
-    handleSendMessage(textToRetry);
+
+    const msgIndex = messages.findIndex((m) => m.id === messageId);
+    const prevUserMsg = [...messages].slice(0, msgIndex).reverse().find((m) => m.sender === 'You');
+    if (!prevUserMsg) return;
+
+    // Regeneration removes the old answer and everything after it, preserving
+    // the conversation context instead of creating a new prompt from the AI's
+    // previous answer.
+    const updatedHistory = messages
+      .slice(0, msgIndex)
+      .map((message) => ({ ...message, suggestions: undefined }));
+    setMessages(updatedHistory);
+    const apiAttachments = await getApiAttachments(prevUserMsg.attachments);
+    await askGoogleAi(updatedHistory, apiAttachments.length > 0 ? apiAttachments : undefined, prevUserMsg.message);
   };
 
   const handleNewChat = () => {
@@ -870,6 +1183,8 @@ export const App: React.FC = () => {
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}
           onExport={handleExportTranscript}
+          onExportWorkspace={handleExportWorkspace}
+          onImportWorkspace={handleImportWorkspace}
           onOpenDrawer={() => {
             // Mobile opens overlay drawer, desktop toggles sidebar collapse!
             if (window.innerWidth < 1024) {
@@ -892,6 +1207,7 @@ export const App: React.FC = () => {
               prev.map((s) => (s.id === currentSessionId ? { ...s, pinned: !s.pinned } : s))
             );
           }}
+          onOpenServerSettings={() => setIsServerSettingsOpen(true)}
         />
 
         {/* Central Chat Output Scrollable Pane */}
@@ -1010,6 +1326,7 @@ export const App: React.FC = () => {
                     onReaction={handleReaction}
                     onDelete={handleDeleteMessageItem}
                     onRetry={handleRetryMessage}
+                    onEdit={handleEditMessage}
                     onSuggestionClick={handleSendMessage}
                   />
                 ))}
@@ -1206,12 +1523,19 @@ export const App: React.FC = () => {
           </div>
         )}
 
+        {/* Modal: Server Settings Modal for mobile/emulator/custom server */}
+        <ServerSettingsModal
+          isOpen={isServerSettingsOpen}
+          onClose={() => setIsServerSettingsOpen(false)}
+        />
+
         {/* Bottom Chat Typing Area Component */}
         <ChatInput
           onSendMessage={(txt) => {
             handleSendMessage(txt);
             setInputMessageText('');
           }}
+          onStopGeneration={stopGeneration}
           onFilesSelected={handleFilesSelected}
           isLoading={isLoading}
           attachments={attachments}

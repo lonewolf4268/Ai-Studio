@@ -2,10 +2,16 @@
 
 @variant dark (&:where(.dark, .dark *));
 
+:root {
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @layer base {
   body {
     @apply bg-[#F4F6F9] dark:bg-gray-950 text-gray-900 dark:text-gray-100 font-sans;
     -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: none;
   }
 }
 

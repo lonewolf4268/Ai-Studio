@@ -3,6 +3,8 @@ export interface Attachment {
   mimeType: string;
   name: string;
   extractedText?: string;
+  /** IndexedDB key used to restore the attachment after a page reload. */
+  storageKey?: string;
 }
 
 export interface ChatMessage {

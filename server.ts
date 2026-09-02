@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import path from 'path';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
@@ -6,6 +7,7 @@ import { createServer as createViteServer } from 'vite';
 const app = express();
 const PORT = 3000;
 
+app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
@@ -55,6 +57,11 @@ app.post('/api/chat', async (req, res) => {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
 
+    let clientDisconnected = false;
+    res.on('close', () => {
+      if (!res.writableEnded) clientDisconnected = true;
+    });
+
     let streamResponse;
     const parts: any[] = [];
     
@@ -95,13 +102,14 @@ app.post('/api/chat', async (req, res) => {
     }
 
     for await (const chunk of streamResponse) {
+      if (clientDisconnected) break;
       const text = chunk.text || '';
       if (text) {
         res.write(`data: ${JSON.stringify({ text })}\n\n`);
       }
     }
 
-    res.write('data: [DONE]\n\n');
+    if (!clientDisconnected) res.write('data: [DONE]\n\n');
     return res.end();
   } catch (error: any) {
     console.error('Gemini API error:', error);
