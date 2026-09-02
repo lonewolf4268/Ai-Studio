@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Sparkles, Trash2, Bot, Sun, Moon, Download, FileText, FileCode, Menu, Search, X, BookOpen, ArrowDownCircle } from 'lucide-react';
+import { Trash2, Sun, Moon, Download, FileText, FileCode, Menu, Search, X, BookOpen, ArrowDownCircle, Pin } from 'lucide-react';
 
 interface HeaderProps {
   onClearChat: () => void;
@@ -13,6 +13,11 @@ interface HeaderProps {
   onOpenTemplates: () => void;
   autoScroll: boolean;
   onToggleAutoScroll: () => void;
+  // Optional premium fields for active context
+  sessionTitle?: string;
+  sessionCategory?: string;
+  sessionPinned?: boolean;
+  onTogglePin?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,57 +32,90 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTemplates,
   autoScroll,
   onToggleAutoScroll,
+  sessionTitle = 'AI Studio',
+  sessionCategory = 'General',
+  sessionPinned = false,
+  onTogglePin,
 }) => {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
+  // Category specific color mapping for a highly refined accent feel
+  const getCategoryColor = (cat: string) => {
+    switch (cat.toLowerCase()) {
+      case 'coding':
+        return 'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 border-blue-100 dark:border-blue-900/30';
+      case 'work':
+        return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-100 dark:border-amber-900/30';
+      case 'personal':
+        return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-100 dark:border-emerald-900/30';
+      default:
+        return 'bg-slate-50 text-slate-700 dark:bg-slate-900 dark:text-slate-300 border-slate-100 dark:border-slate-800/80';
+    }
+  };
+
   return (
-    <header className="sticky top-0 z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 px-4 py-3 flex items-center justify-between shadow-xs transition-colors">
-      <div className="flex items-center space-x-3">
+    <header className="sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-900 px-4 py-2.5 flex items-center justify-between transition-colors">
+      <div className="flex items-center space-x-3 min-w-0 flex-1">
         <button
           onClick={onOpenDrawer}
-          title="Open chat history drawer"
-          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          title="Open chat history"
+          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors shrink-0"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white shadow-xs hidden sm:flex">
-          <Bot className="w-5 h-5" />
-        </div>
-        <div>
-          <div className="flex items-center space-x-1.5">
-            <h1 className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight">AI Studio</h1>
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900">
-              <Sparkles className="w-3 h-3 mr-1" />
-              Gemini
-            </span>
+        <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800 shrink-0" />
+
+        <div className="min-w-0 flex items-center space-x-2">
+          <div className="truncate">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100 tracking-tight truncate max-w-[150px] sm:max-w-[280px]">
+                {sessionTitle}
+              </h1>
+              {onTogglePin && (
+                <button
+                  onClick={onTogglePin}
+                  className={`p-0.5 rounded hover:bg-slate-200/40 dark:hover:bg-slate-800/40 transition-colors shrink-0 ${
+                    sessionPinned ? 'text-amber-500' : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                  title={sessionPinned ? 'Unpin Chat' : 'Pin Chat'}
+                >
+                  <Pin className={`w-3.5 h-3.5 ${sessionPinned ? 'fill-amber-500' : ''}`} />
+                </button>
+              )}
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium border ${getCategoryColor(sessionCategory)} shrink-0`}>
+                {sessionCategory}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate hidden sm:block">
+              AI Chat Workspace &bull; Gemini Flash
+            </p>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 hidden sm:block">By Lonewolf • OCR & Markdown Enabled</p>
         </div>
       </div>
 
-      <div className="flex items-center space-x-2 relative">
-        {/* Search input / toggle */}
+      <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0 ml-4">
+        {/* Search Input toggle */}
         {messageCount > 0 && (
-          <div className="flex items-center">
+          <div className="relative flex items-center">
             {isSearchOpen ? (
-              <div className="flex items-center bg-gray-100 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-full px-3 py-1 space-x-2">
-                <Search className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+              <div className="flex items-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full px-2.5 py-1 space-x-1.5 shadow-2xs">
+                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  placeholder="Filter messages..."
+                  placeholder="Filter chat..."
                   autoFocus
-                  className="bg-transparent text-xs text-gray-900 dark:text-gray-100 outline-none w-28 sm:w-40"
+                  className="bg-transparent text-xs text-slate-800 dark:text-slate-200 outline-none w-24 sm:w-36 font-normal"
                 />
                 <button
                   onClick={() => {
                     onSearchChange('');
                     setIsSearchOpen(false);
                   }}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 shrink-0"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -85,14 +123,36 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <button
                 onClick={() => setIsSearchOpen(true)}
-                title="Search chat messages"
-                className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title="Search chat"
+                className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
               >
                 <Search className="w-4 h-4" />
               </button>
             )}
           </div>
         )}
+
+        {/* Prompt Templates */}
+        <button
+          onClick={onOpenTemplates}
+          title="Templates Library"
+          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
+        >
+          <BookOpen className="w-4 h-4" />
+        </button>
+
+        {/* Auto-scroll toggle */}
+        <button
+          onClick={onToggleAutoScroll}
+          title={autoScroll ? 'Auto-scroll on streaming: Active' : 'Auto-scroll on streaming: Paused'}
+          className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${
+            autoScroll
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-100/50 dark:border-blue-900/30'
+              : 'text-slate-400 dark:text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-900 border border-transparent'
+          }`}
+        >
+          <ArrowDownCircle className="w-4 h-4" />
+        </button>
 
         {/* Export transcript */}
         {messageCount > 0 && (
@@ -101,68 +161,51 @@ export const Header: React.FC<HeaderProps> = ({
               id="export-chat-btn"
               onClick={() => setShowExportMenu(!showExportMenu)}
               title="Export chat transcript"
-              className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors flex items-center space-x-1"
+              className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
             >
               <Download className="w-4 h-4" />
             </button>
 
             {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 py-1.5 z-30">
-                <button
-                  onClick={() => {
-                    onExport('md');
-                    setShowExportMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
-                >
-                  <FileCode className="w-3.5 h-3.5 text-blue-500" />
-                  <span>Export as Markdown (.md)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    onExport('txt');
-                    setShowExportMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2"
-                >
-                  <FileText className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Export as Text (.txt)</span>
-                </button>
-              </div>
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
+                <div className="absolute right-0 mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 py-1.5 z-30">
+                  <button
+                    onClick={() => {
+                      onExport('md');
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
+                  >
+                    <FileCode className="w-3.5 h-3.5 text-blue-500" />
+                    <span className="font-medium">Export Markdown (.md)</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      onExport('txt');
+                      setShowExportMenu(false);
+                    }}
+                    className="w-full text-left px-3.5 py-2 text-xs text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 flex items-center space-x-2 transition-colors"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="font-medium">Export Plain Text (.txt)</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
 
-        {/* Prompt Templates */}
-        <button
-          onClick={onOpenTemplates}
-          title="Prompt Templates Library"
-          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors flex items-center space-x-1"
-        >
-          <BookOpen className="w-4 h-4" />
-        </button>
-
-        {/* Auto-scroll toggle */}
-        <button
-          onClick={onToggleAutoScroll}
-          title={autoScroll ? 'Auto-scroll on streaming: Enabled' : 'Auto-scroll on streaming: Disabled'}
-          className={`p-2 rounded-full transition-colors flex items-center space-x-1 ${
-            autoScroll
-              ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60'
-              : 'text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800'
-          }`}
-        >
-          <ArrowDownCircle className="w-4 h-4" />
-        </button>
+        <div className="h-4 w-[1px] bg-slate-200 dark:bg-slate-800" />
 
         {/* Dark mode toggle */}
         <button
           id="dark-mode-toggle"
           onClick={onToggleDarkMode}
           title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+          className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-200/50 dark:hover:bg-slate-900 rounded-lg transition-colors"
         >
-          {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+          {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
         </button>
 
         {/* Clear chat */}
@@ -170,8 +213,8 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             id="clear-chat-btn"
             onClick={onClearChat}
-            title="Clear chat history"
-            className="p-2 text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 rounded-full transition-colors"
+            title="Clear Chat Content"
+            className="p-1.5 text-slate-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -180,4 +223,3 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
-

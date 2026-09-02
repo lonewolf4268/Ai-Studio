@@ -69,7 +69,7 @@ app.post('/api/chat', async (req, res) => {
       };
 
       streamResponse = await ai.models.generateContentStream({
-        model: 'gemini-flash-latest',
+        model: 'gemini-2.5-flash',
         contents: {
           parts: [imagePart, textPart],
         },
@@ -77,7 +77,7 @@ app.post('/api/chat', async (req, res) => {
     } else {
       // Text-only request
       streamResponse = await ai.models.generateContentStream({
-        model: 'gemini-flash-latest',
+        model: 'gemini-2.5-flash',
         contents: formattedPrompt,
       });
     }
@@ -119,7 +119,7 @@ app.post('/api/suggestions', async (req, res) => {
 
     const ai = getGeminiClient();
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-2.5-flash',
       contents: formattedPrompt,
       config: {
         responseMimeType: 'application/json',
