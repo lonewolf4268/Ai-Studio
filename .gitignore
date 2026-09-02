@@ -17,3 +17,18 @@ node_modules
 dist
 .env
 .env.local
+
+# Local Android Studio state and generated native build output
+/.idea/
+/android/.gradle/
+/android/app/build/
+/android/capacitor-cordova-android-plugins/
+/android/local.properties
+
+# Duplicate root Android Studio wrapper; the versioned native project lives in /android.
+/build.gradle
+/gradle.properties
+/gradle/
+/gradlew
+/gradlew.bat
+/settings.gradle
