@@ -6,6 +6,7 @@ export interface ChatMessage {
   imageUri?: string;
   extractedText?: string;
   reaction?: 'thumbs-up' | 'thumbs-down';
+  suggestions?: string[];
 }
 
 export interface ChatSession {
@@ -13,8 +14,10 @@ export interface ChatSession {
   title: string;
   messages: ChatMessage[];
   createdAt: number;
+  updatedAt?: number;
   pinned?: boolean;
   category?: string;
+  tags?: string[];
 }
 
 export interface ApiChatResponse {

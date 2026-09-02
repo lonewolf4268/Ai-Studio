@@ -106,6 +106,45 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+app.post('/api/suggestions', async (req, res) => {
+  try {
+    const { history } = req.body;
+    if (!Array.isArray(history) || history.length === 0) {
+      return res.status(400).json({ error: 'History must be provided.' });
+    }
+
+    const formattedPrompt = history
+      .map((msg: { sender: string; message: string }) => `${msg.sender}: ${msg.message}`)
+      .join('\n') + '\n\nBased on the conversation above, generate exactly 3 short, engaging follow-up questions or prompts the user could ask next to continue the conversation. Respond strictly with a JSON array of strings, nothing else. Maximum 10 words per prompt.';
+
+    const ai = getGeminiClient();
+    const response = await ai.models.generateContent({
+      model: 'gemini-flash-latest',
+      contents: formattedPrompt,
+      config: {
+        responseMimeType: 'application/json',
+      }
+    });
+
+    const text = response.text || '[]';
+    let suggestions = [];
+    try {
+      suggestions = JSON.parse(text);
+    } catch (e) {
+      suggestions = [];
+    }
+
+    if (!Array.isArray(suggestions)) {
+      suggestions = [];
+    }
+
+    res.json({ suggestions: suggestions.slice(0, 3) });
+  } catch (error: any) {
+    console.error('Suggestions API error:', error);
+    res.status(500).json({ error: 'Failed to generate suggestions' });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({

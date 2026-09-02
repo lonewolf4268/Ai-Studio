@@ -6,6 +6,19 @@ import { ChatMessage, ChatSession } from './types';
 import { recognizeTextFromImage, fileToBase64 } from './utils/ocr';
 import { Bot, Loader2, MessageSquare, Plus, Trash2, X, Pencil, ArrowUp, Search, BookOpen, Pin } from 'lucide-react';
 
+function formatRelativeTime(timestamp: number): string {
+  const diffInMs = Date.now() - timestamp;
+  const diffInMins = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInMins < 1) return 'Just now';
+  if (diffInMins < 60) return `${diffInMins}m ago`;
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+  return new Date(timestamp).toLocaleDateString();
+}
+
 export const App: React.FC = () => {
   // Chat sessions state
   const [sessions, setSessions] = useState<ChatSession[]>(() => {
@@ -36,6 +49,7 @@ export const App: React.FC = () => {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitleValue, setEditingTitleValue] = useState<string>('');
   const [editingCategoryValue, setEditingCategoryValue] = useState<string>('General');
+  const [editingTagsValue, setEditingTagsValue] = useState<string>('');
   const [sessionsFilterQuery, setSessionsFilterQuery] = useState<string>('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
@@ -93,7 +107,7 @@ export const App: React.FC = () => {
               title = firstUserMsg.message.slice(0, 32) + (firstUserMsg.message.length > 32 ? '...' : '');
             }
           }
-          return { ...session, messages: newMessages, title };
+          return { ...session, messages: newMessages, title, updatedAt: Date.now() };
         }
         return session;
       });
@@ -325,6 +339,32 @@ export const App: React.FC = () => {
       if (!accumulatedText) {
         streamingTargetTextRef.current[aiMessageId] = 'No response generated.';
       }
+
+      // Fetch quick-follow-up suggestions
+      try {
+        const suggRes = await fetch('/api/suggestions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            history: fullHistory.concat({
+              id: aiMessageId,
+              sender: 'Ai',
+              message: accumulatedText,
+              timestamp
+            })
+          }),
+        });
+        if (suggRes.ok) {
+          const { suggestions } = await suggRes.json();
+          if (suggestions && Array.isArray(suggestions) && suggestions.length > 0) {
+            setMessages((prev) => 
+              prev.map(m => m.id === aiMessageId ? { ...m, suggestions } : m)
+            );
+          }
+        }
+      } catch (suggErr) {
+        console.error('Failed to fetch suggestions:', suggErr);
+      }
     } catch (err: any) {
       console.error('AI query error:', err);
       setMessages((prev) => {
@@ -399,7 +439,10 @@ export const App: React.FC = () => {
       extractedText: ocrInfo,
     };
 
-    const updatedHistory = [...messages, newUserMessage];
+    // Clear old suggestions from previous messages to keep UI clean
+    const historyWithoutOldSuggestions = messages.map(m => ({ ...m, suggestions: undefined }));
+    const updatedHistory = [...historyWithoutOldSuggestions, newUserMessage];
+    
     setMessages(updatedHistory);
     setSelectedImage(null);
 
@@ -417,12 +460,39 @@ export const App: React.FC = () => {
     );
   };
 
+  const handleDeleteMessageItem = (messageId: string) => {
+    setMessages((prev) => prev.filter((m) => m.id !== messageId));
+  };
+
+  const handleRetryMessage = (messageId: string) => {
+    const msg = messages.find((m) => m.id === messageId);
+    if (!msg) return;
+
+    let textToRetry = msg.message;
+    if (msg.sender === 'App') {
+      const msgIndex = messages.findIndex((m) => m.id === messageId);
+      const prevUserMsg = [...messages]
+        .slice(0, msgIndex)
+        .reverse()
+        .find((m) => m.sender === 'You');
+      if (prevUserMsg) {
+        textToRetry = prevUserMsg.message;
+      }
+    }
+    
+    // Delete this message and everything after it?
+    // Actually, ChatGPT usually removes the failing message and regenerates.
+    // For now, let's just trigger a new send message with the text.
+    handleSendMessage(textToRetry);
+  };
+
   const handleNewChat = () => {
     const newSession: ChatSession = {
       id: `session-${Date.now()}`,
       title: 'New Chat',
       messages: [],
       createdAt: Date.now(),
+      updatedAt: Date.now(),
       category: selectedCategoryFilter !== 'All' ? selectedCategoryFilter : 'General',
     };
     setSessions((prev) => [newSession, ...prev]);
@@ -448,13 +518,15 @@ export const App: React.FC = () => {
     setEditingSessionId(session.id);
     setEditingTitleValue(session.title);
     setEditingCategoryValue(session.category || 'General');
+    setEditingTagsValue((session.tags || []).join(', '));
   };
 
   const handleSaveRename = (sessionId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (editingTitleValue.trim()) {
+      const parsedTags = editingTagsValue.split(',').map(t => t.trim()).filter(Boolean);
       setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, title: editingTitleValue.trim(), category: editingCategoryValue } : s))
+        prev.map((s) => (s.id === sessionId ? { ...s, title: editingTitleValue.trim(), category: editingCategoryValue, tags: parsedTags } : s))
       );
     }
     setEditingSessionId(null);
@@ -549,7 +621,8 @@ export const App: React.FC = () => {
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
               {sessions
                 .filter((s) => {
-                  const matchesQuery = s.title.toLowerCase().includes(sessionsFilterQuery.toLowerCase());
+                  const query = sessionsFilterQuery.toLowerCase();
+                  const matchesQuery = s.title.toLowerCase().includes(query) || (s.tags || []).some(t => t.toLowerCase().includes(query));
                   const sessionCategory = s.category || 'General';
                   const matchesCategory = selectedCategoryFilter === 'All' || sessionCategory === selectedCategoryFilter;
                   return matchesQuery && matchesCategory;
@@ -579,8 +652,7 @@ export const App: React.FC = () => {
                     <div className="flex items-center space-x-2.5 truncate flex-1 mr-2">
                       <MessageSquare className="w-4 h-4 shrink-0 opacity-70" />
                       {isEditing ? (
-                        <div
-                          className="flex flex-col space-y-1.5 flex-1 p-1"
+                          <div className="flex flex-col space-y-1.5 flex-1 p-1"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <input
@@ -588,11 +660,23 @@ export const App: React.FC = () => {
                             value={editingTitleValue}
                             onChange={(e) => setEditingTitleValue(e.target.value)}
                             autoFocus
+                            placeholder="Chat title"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleSaveRename(session.id);
                               if (e.key === 'Escape') setEditingSessionId(null);
                             }}
                             className="bg-white dark:bg-gray-800 border border-blue-400 rounded px-1.5 py-0.5 text-xs text-gray-900 dark:text-gray-100 w-full outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={editingTagsValue}
+                            onChange={(e) => setEditingTagsValue(e.target.value)}
+                            placeholder="Tags (comma separated)"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveRename(session.id);
+                              if (e.key === 'Escape') setEditingSessionId(null);
+                            }}
+                            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-1.5 py-0.5 text-[11px] text-gray-900 dark:text-gray-100 w-full outline-none"
                           />
                           <div className="flex items-center justify-between space-x-1">
                             <select
@@ -619,9 +703,20 @@ export const App: React.FC = () => {
                             {session.pinned && <Pin className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />}
                             <span className="truncate">{session.title}</span>
                           </div>
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 font-normal">
-                            {session.category || 'General'}
-                          </span>
+                          <div className="flex flex-col space-y-0.5 mt-0.5">
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal">
+                              {session.category || 'General'} &bull; {formatRelativeTime(session.updatedAt || session.createdAt)}
+                            </span>
+                            {session.tags && session.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-0.5">
+                                {session.tags.map((tag, idx) => (
+                                  <span key={idx} className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                    #{tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -742,6 +837,9 @@ export const App: React.FC = () => {
                 message={message}
                 isDarkMode={isDarkMode}
                 onReaction={handleReaction}
+                onDelete={handleDeleteMessageItem}
+                onRetry={handleRetryMessage}
+                onSuggestionClick={handleSendMessage}
               />
             ))}
           </div>

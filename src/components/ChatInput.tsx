@@ -194,7 +194,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
         {/* Input Bar matching Android Activity layout */}
         <form onSubmit={handleSubmit} className="flex items-end space-x-2">
-          {/* File attachment button */}
           <input
             ref={fileInputRef}
             type="file"
@@ -203,74 +202,82 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             id="image-file-input"
             onChange={handleFileChange}
           />
-          <button
-            id="uploadButton"
-            type="button"
-            title="Attach an image for OCR and AI analysis"
-            disabled={isLoading || isOcrProcessing}
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 flex items-center justify-center shadow-xs"
-          >
-            {isOcrProcessing ? (
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-            ) : (
-              <Paperclip className="w-5 h-5" />
-            )}
-          </button>
-
-          {/* Voice recording button */}
-          <button
-            id="micButton"
-            type="button"
-            title={isListening ? 'Stop listening' : 'Record voice input'}
-            disabled={isLoading || isOcrProcessing}
-            onClick={toggleVoiceRecording}
-            className={`p-2.5 rounded-full transition-colors shrink-0 flex items-center justify-center shadow-xs ${
-              isListening
-                ? 'bg-red-600 text-white animate-pulse'
-                : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-
-          {/* Markdown Preview toggle button */}
-          <button
-            type="button"
-            title={isPreviewMode ? 'Switch to edit mode' : 'Preview formatted markdown'}
-            onClick={() => setIsPreviewMode(!isPreviewMode)}
-            className={`p-2.5 rounded-full transition-colors shrink-0 flex items-center justify-center shadow-xs ${
-              isPreviewMode
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-            }`}
-          >
-            {isPreviewMode ? <Edit3 className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-          </button>
 
           {/* Text Input area or Preview Area */}
-          <div className="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-950 rounded-2xl px-3.5 py-2 transition-all">
-            {isPreviewMode ? (
-              <div className="w-full text-sm text-gray-900 dark:text-gray-100 min-h-[24px] max-h-36 overflow-y-auto markdown-body">
-                {text.trim() ? (
-                  <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+          <div className="flex-1 flex items-end bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-950 rounded-2xl px-3 py-1.5 transition-all">
+            
+            <div className="flex-1 min-w-0 py-1">
+              {isPreviewMode ? (
+                <div className="w-full text-sm text-gray-900 dark:text-gray-100 min-h-[24px] max-h-36 overflow-y-auto markdown-body">
+                  {text.trim() ? (
+                    <Markdown remarkPlugins={[remarkGfm]}>{text}</Markdown>
+                  ) : (
+                    <span className="text-gray-400 italic">Nothing to preview yet...</span>
+                  )}
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  id="inputEditText"
+                  rows={1}
+                  value={text}
+                  onChange={handleTextChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={isListening ? 'Listening... Speak now' : 'Enter text here (Markdown supported)'}
+                  disabled={isLoading}
+                  className="w-full bg-transparent border-0 resize-none outline-none text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 max-h-36 overflow-y-auto block"
+                />
+              )}
+            </div>
+
+            {/* Action Icons inside the input area at the end */}
+            <div className="flex items-center space-x-1 shrink-0 ml-1 mb-0.5">
+              {/* Markdown Preview toggle button */}
+              <button
+                type="button"
+                title={isPreviewMode ? 'Switch to edit mode' : 'Preview formatted markdown'}
+                onClick={() => setIsPreviewMode(!isPreviewMode)}
+                className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
+                  isPreviewMode
+                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/50 dark:text-blue-400'
+                    : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                {isPreviewMode ? <Edit3 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+
+              {/* File attachment button */}
+              <button
+                id="uploadButton"
+                type="button"
+                title="Attach an image for OCR and AI analysis"
+                disabled={isLoading || isOcrProcessing}
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1.5 rounded-full text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              >
+                {isOcrProcessing ? (
+                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                 ) : (
-                  <span className="text-gray-400 italic">Nothing to preview yet...</span>
+                  <Paperclip className="w-4 h-4" />
                 )}
-              </div>
-            ) : (
-              <textarea
-                ref={textareaRef}
-                id="inputEditText"
-                rows={1}
-                value={text}
-                onChange={handleTextChange}
-                onKeyDown={handleKeyDown}
-                placeholder={isListening ? 'Listening... Speak now' : 'Enter text here (Markdown supported)'}
-                disabled={isLoading}
-                className="w-full bg-transparent border-0 resize-none outline-none text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 max-h-36 overflow-y-auto block"
-              />
-            )}
+              </button>
+
+              {/* Voice recording button */}
+              <button
+                id="micButton"
+                type="button"
+                title={isListening ? 'Stop listening' : 'Record voice input'}
+                disabled={isLoading || isOcrProcessing}
+                onClick={toggleVoiceRecording}
+                className={`p-1.5 rounded-full transition-colors flex items-center justify-center ${
+                  isListening
+                    ? 'text-red-500 bg-red-50 dark:bg-red-900/20 animate-pulse'
+                    : 'text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Send button */}
