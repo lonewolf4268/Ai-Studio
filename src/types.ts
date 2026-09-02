@@ -1,10 +1,18 @@
+export interface Attachment {
+  uri: string;
+  mimeType: string;
+  name: string;
+  extractedText?: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'You' | 'Ai' | 'App';
   message: string;
   timestamp: string;
-  imageUri?: string;
-  extractedText?: string;
+  imageUri?: string; // keeping for backward compatibility
+  extractedText?: string; // keeping for backward compatibility
+  attachments?: Attachment[];
   reaction?: 'thumbs-up' | 'thumbs-down';
   suggestions?: string[];
 }

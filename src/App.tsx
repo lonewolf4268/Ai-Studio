@@ -4,7 +4,7 @@ import { MessageItem } from './components/MessageItem';
 import { ChatInput } from './components/ChatInput';
 import { ChatMessage, ChatSession } from './types';
 import { recognizeTextFromImage, fileToBase64 } from './utils/ocr';
-import { Bot, Loader2, MessageSquare, Plus, Trash2, X, Pencil, ArrowUp, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
+import { Bot, MessageSquare, Plus, Trash2, X, Pencil, ArrowUp, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
 
 function formatRelativeTime(timestamp: number): string {
   const diffInMs = Date.now() - timestamp;
@@ -134,14 +134,10 @@ export const App: React.FC = () => {
   }, [sessions]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isOcrProcessing, setIsOcrProcessing] = useState<boolean>(false);
+  
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedImage, setSelectedImage] = useState<{
-    file: File;
-    previewUrl: string;
-    ocrText?: string;
-  } | null>(null);
+  const [attachments, setAttachments] = useState<import('./components/ChatInput').AttachmentState[]>([]);
 
   const [showBackToTop, setShowBackToTop] = useState<boolean>(false);
   const streamingTargetTextRef = useRef<Record<string, string>>({});
@@ -238,7 +234,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading, isOcrProcessing]);
+  }, [messages, isLoading]);
 
   // Initial greeting for new sessions if empty
   useEffect(() => {
@@ -267,7 +263,7 @@ export const App: React.FC = () => {
   // Call Google AI server endpoint with streaming support
   const askGoogleAi = async (
     fullHistory: ChatMessage[],
-    imageData?: { data: string; mimeType: string },
+    attachmentsData?: { data: string; mimeType: string; name: string }[],
     directPrompt?: string
   ) => {
     setIsLoading(true);
@@ -288,9 +284,9 @@ export const App: React.FC = () => {
     try {
       const payload: any = {};
       
-      if (imageData) {
-        payload.image = imageData;
-        payload.prompt = directPrompt || 'Describe this image or explain the contents.';
+      if (attachmentsData && attachmentsData.length > 0) {
+        payload.attachments = attachmentsData;
+        payload.prompt = directPrompt || 'Describe this content or extract text.';
       } else {
         payload.history = fullHistory
           .filter((m) => m.sender === 'You' || m.sender === 'Ai')
@@ -396,49 +392,71 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle image upload & OCR processing matching Android processImage
-  const handleImageSelected = async (file: File) => {
-    const previewUrl = URL.createObjectURL(file);
-    setSelectedImage({ file, previewUrl });
-    setIsOcrProcessing(true);
+  // Handle file uploads & OCR processing
+  const handleFilesSelected = async (files: FileList | File[]) => {
+    const newAttachments = Array.from(files).map((file) => ({
+      id: Math.random().toString(36).substring(7),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      isProcessing: file.type.startsWith('image/'),
+    }));
+    
+    setAttachments((prev) => [...prev, ...newAttachments]);
 
-    try {
-      const extracted = await recognizeTextFromImage(file);
-      if (extracted && extracted.trim().length > 0) {
-        setSelectedImage({ file, previewUrl, ocrText: extracted });
-      } else {
-        setSelectedImage({ file, previewUrl, ocrText: '' });
+    for (const attachment of newAttachments) {
+      if (attachment.file.type.startsWith('image/')) {
+        try {
+          const extracted = await recognizeTextFromImage(attachment.file);
+          setAttachments((prev) => 
+            prev.map(a => a.id === attachment.id ? { ...a, ocrText: extracted || '', isProcessing: false } : a)
+          );
+        } catch (err) {
+          console.warn('Client OCR notice:', err);
+          setAttachments((prev) => 
+            prev.map(a => a.id === attachment.id ? { ...a, isProcessing: false } : a)
+          );
+        }
       }
-    } catch (err) {
-      console.warn('Client OCR notice:', err);
-      setSelectedImage({ file, previewUrl });
-    } finally {
-      setIsOcrProcessing(false);
     }
+  };
+
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments((prev) => {
+      const target = prev.find(a => a.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter(a => a.id !== id);
+    });
   };
 
   // Handle message sending
   const handleSendMessage = async (userText: string) => {
     let finalUserText = userText;
-    let imagePayload: { data: string; mimeType: string } | undefined;
-    let imagePreviewUrl: string | undefined;
-    let ocrInfo: string | undefined;
+    
+    // We will build a list of attachments to send to the server
+    const messageAttachments = [];
+    const chatMessageAttachments = [];
 
-    if (selectedImage) {
-      imagePreviewUrl = selectedImage.previewUrl;
-      ocrInfo = selectedImage.ocrText;
-
+    for (const attachment of attachments) {
       try {
-        const { base64, mimeType } = await fileToBase64(selectedImage.file);
-        imagePayload = { data: base64, mimeType };
+        const { base64, mimeType } = await fileToBase64(attachment.file);
+        messageAttachments.push({ data: base64, mimeType, name: attachment.file.name });
+        chatMessageAttachments.push({ 
+          uri: attachment.previewUrl, 
+          mimeType, 
+          name: attachment.file.name,
+          extractedText: attachment.ocrText 
+        });
       } catch (e) {
-        console.error('Failed to convert image to base64', e);
+        console.error('Failed to convert file to base64', e);
       }
+    }
 
-      if (!finalUserText.trim() && selectedImage.ocrText) {
-        finalUserText = selectedImage.ocrText;
-      } else if (!finalUserText.trim()) {
-        finalUserText = 'Please examine this image and provide insights.';
+    if (!finalUserText.trim() && attachments.length > 0) {
+      const textParts = attachments.filter(a => a.ocrText).map(a => a.ocrText);
+      if (textParts.length > 0) {
+        finalUserText = textParts.join('\n\n');
+      } else {
+        finalUserText = 'Please examine these files and provide insights.';
       }
     }
 
@@ -447,8 +465,7 @@ export const App: React.FC = () => {
       sender: 'You',
       message: finalUserText,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      imageUri: imagePreviewUrl,
-      extractedText: ocrInfo,
+      attachments: chatMessageAttachments,
     };
 
     // Clear old suggestions from previous messages to keep UI clean
@@ -456,14 +473,14 @@ export const App: React.FC = () => {
     const updatedHistory = [...historyWithoutOldSuggestions, newUserMessage];
     
     setMessages(updatedHistory);
-    setSelectedImage(null);
+    setAttachments([]);
 
-    await askGoogleAi(updatedHistory, imagePayload, finalUserText);
+    await askGoogleAi(updatedHistory, messageAttachments.length > 0 ? messageAttachments : undefined, finalUserText);
   };
 
   const handleClearChat = () => {
     setMessages([]);
-    setSelectedImage(null);
+    setAttachments([]);
   };
 
   const handleReaction = (messageId: string, reaction: 'thumbs-up' | 'thumbs-down' | undefined) => {
@@ -1195,11 +1212,10 @@ export const App: React.FC = () => {
             handleSendMessage(txt);
             setInputMessageText('');
           }}
-          onImageSelected={handleImageSelected}
+          onFilesSelected={handleFilesSelected}
           isLoading={isLoading}
-          isOcrProcessing={isOcrProcessing}
-          selectedImage={selectedImage}
-          onRemoveSelectedImage={() => setSelectedImage(null)}
+          attachments={attachments}
+          onRemoveAttachment={handleRemoveAttachment}
           text={inputMessageText}
           onTextChange={setInputMessageText}
         />

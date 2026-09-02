@@ -188,13 +188,39 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onReaction, o
                 : 'bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl rounded-tl-3xs px-5 py-4 shadow-3xs text-slate-800 dark:text-slate-100'
             }`}
           >
-            {/* Image attachment inside message if any */}
-            {message.imageUri && (
+            {/* File attachments inside message if any */}
+            {(message.attachments && message.attachments.length > 0) ? (
+              <div className="mb-3.5 flex flex-wrap gap-2">
+                {message.attachments.map((att, idx) => (
+                  <div key={idx} className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-1">
+                    {att.mimeType.startsWith('image/') ? (
+                      <img
+                        src={att.uri}
+                        alt="Attached file"
+                        className="max-h-60 w-auto object-contain rounded-lg"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="px-3 py-4 flex flex-col items-center justify-center text-slate-500 min-w-[120px]">
+                        <FileText className="w-8 h-8 mb-2 opacity-50" />
+                        <span className="text-[11px] font-medium max-w-[100px] truncate">{att.name}</span>
+                      </div>
+                    )}
+                    {att.extractedText && (
+                      <div className="mt-1.5 bg-slate-100 dark:bg-slate-900/80 px-2.5 py-1.5 text-[11px] text-slate-600 dark:text-slate-400 rounded-lg border border-slate-200/50 dark:border-slate-800/40 flex items-center space-x-1.5">
+                        <FileText className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                        <span className="truncate font-mono"><strong className="font-semibold text-slate-700 dark:text-slate-300">Text Extracted</strong></span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : message.imageUri && (
               <div className="mb-3.5 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-1">
                 <img
                   src={message.imageUri}
                   alt="Attached OCR upload"
-                  className="max-h-72 w-auto object-contain rounded-lg"
+                  className="max-h-60 w-auto object-contain rounded-lg"
                   referrerPolicy="no-referrer"
                 />
                 {message.extractedText && (

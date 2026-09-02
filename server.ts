@@ -56,23 +56,35 @@ app.post('/api/chat', async (req, res) => {
     res.flushHeaders?.();
 
     let streamResponse;
-    if (image && typeof image.data === 'string' && typeof image.mimeType === 'string') {
-      // Multimodal request with image and prompt
-      const imagePart = {
+    const parts: any[] = [];
+    
+    // Add all attachments if present
+    if (req.body.attachments && Array.isArray(req.body.attachments)) {
+      for (const att of req.body.attachments) {
+        if (att.data && att.mimeType) {
+          parts.push({
+            inlineData: {
+              mimeType: att.mimeType,
+              data: att.data.replace(/^data:[^;]+;base64,/, ''),
+            }
+          });
+        }
+      }
+    } else if (image && typeof image.data === 'string' && typeof image.mimeType === 'string') {
+      // Fallback for single image backwards compatibility
+      parts.push({
         inlineData: {
           mimeType: image.mimeType,
           data: image.data.replace(/^data:[^;]+;base64,/, ''),
-        },
-      };
-      const textPart = {
-        text: formattedPrompt || 'Describe this image or transcribe the text.',
-      };
+        }
+      });
+    }
 
+    if (parts.length > 0) {
+      parts.push({ text: formattedPrompt || 'Describe this content or extract text.' });
       streamResponse = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',
-        contents: {
-          parts: [imagePart, textPart],
-        },
+        contents: { parts },
       });
     } else {
       // Text-only request
