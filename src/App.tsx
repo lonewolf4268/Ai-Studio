@@ -9,7 +9,6 @@ import { recognizeTextFromImage, fileToBase64 } from './utils/ocr';
 import { getEffectiveApiUrl, isNativeApp } from './utils/api';
 import { blobToDataUrl, loadAttachment, saveAttachment } from './utils/attachmentStore';
 import { App as CapApp } from '@capacitor/app';
-import { StatusBar } from '@capacitor/status-bar';
 import { Bot, MessageSquare, Plus, Trash2, X, Pencil, ArrowDown, Search, BookOpen, Pin, ChevronRight, Folder, Check, Code, PencilLine } from 'lucide-react';
 
 function formatRelativeTime(timestamp: number): string {
@@ -64,7 +63,7 @@ export const App: React.FC = () => {
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState<boolean>(false);
   const [inputMessageText, setInputMessageText] = useState<string>('');
 
-  // Handle native Android hardware back button & status bar
+  // Handle native Android hardware back button.
   useEffect(() => {
     if (!isNativeApp()) return;
 
@@ -84,10 +83,6 @@ export const App: React.FC = () => {
     }).then((handle) => {
       cleanup = () => handle.remove();
     });
-
-    try {
-      StatusBar.setOverlaysWebView({ overlay: false });
-    } catch (e) {}
 
     return () => {
       if (cleanup) cleanup();

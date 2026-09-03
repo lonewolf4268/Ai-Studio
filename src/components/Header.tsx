@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-900 px-4 pt-[max(0.625rem,env(safe-area-inset-top))] pb-2.5 flex items-center justify-between transition-colors">
+    <header className="safe-area-top sticky top-0 z-20 bg-slate-50/90 dark:bg-slate-950/95 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-900 px-4 pb-2.5 flex items-center justify-between transition-colors">
       <div className="flex items-center space-x-3 min-w-0 flex-1">
         <button
           onClick={onOpenDrawer}

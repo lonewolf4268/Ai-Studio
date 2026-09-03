@@ -3,8 +3,14 @@
 @variant dark (&:where(.dark, .dark *));
 
 :root {
-  --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  /* Capacitor injects --safe-area-inset-* on modern Android. Browser-only
+     environments use env(safe-area-inset-*), so take the larger inset. */
+  --app-safe-area-top: max(env(safe-area-inset-top, 0px), var(--safe-area-inset-top, 0px));
+  --app-safe-area-bottom: max(env(safe-area-inset-bottom, 0px), var(--safe-area-inset-bottom, 0px));
+}
+
+.safe-area-top {
+  padding-top: max(0.625rem, var(--app-safe-area-top));
 }
 
 @layer base {

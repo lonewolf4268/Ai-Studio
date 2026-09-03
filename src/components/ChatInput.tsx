@@ -1,4 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { SpeechRecognition } from '@capgo/capacitor-speech-recognition';
 import { Paperclip, ArrowUp, Loader2, X, Image as ImageIcon, Mic, MicOff, Eye, Keyboard, Camera, FileIcon, Square } from 'lucide-react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -44,6 +46,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const nativeSpeechListenerHandlesRef = useRef<PluginListenerHandle[]>([]);
+  const speechPrefixRef = useRef('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -58,12 +62,95 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           recognitionRef.current.stop();
         } catch (e) {}
       }
+      if (Capacitor.isNativePlatform()) {
+        void SpeechRecognition.forceStop();
+      }
+      void Promise.all(nativeSpeechListenerHandlesRef.current.map((handle) => handle.remove()));
     };
   }, []);
 
-  const toggleVoiceRecording = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
+  const removeNativeSpeechListeners = async () => {
+    const handles = nativeSpeechListenerHandlesRef.current;
+    nativeSpeechListenerHandlesRef.current = [];
+    await Promise.all(handles.map((handle) => handle.remove()));
+  };
+
+  const appendTranscript = (transcript: string) => {
+    const cleanTranscript = transcript.trim();
+    if (cleanTranscript) {
+      setText(`${speechPrefixRef.current}${cleanTranscript}`);
+    }
+  };
+
+  const toggleVoiceRecording = async () => {
+    // Android WebView's browser SpeechRecognition implementation is unreliable.
+    // Use the native recognizer there so start, stop, and partial results share
+    // a single lifecycle and permission flow.
+    if (Capacitor.isNativePlatform()) {
+      if (isListening) {
+        try {
+          // forceStop ensures that a recognizer which does not finish normally
+          // is released, and preserves its most recent partial transcript.
+          await SpeechRecognition.forceStop({ timeout: 750 });
+          const lastResult = await SpeechRecognition.getLastPartialResult();
+          if (lastResult.available) appendTranscript(lastResult.text);
+        } catch (error) {
+          console.warn('Failed to stop native speech recognition', error);
+        } finally {
+          setIsListening(false);
+          await removeNativeSpeechListeners();
+        }
+        return;
+      }
+
+      try {
+        const permissions = await SpeechRecognition.requestPermissions();
+        if (permissions.speechRecognition !== 'granted') {
+          alert('Microphone permission is required for voice dictation.');
+          return;
+        }
+
+        const { available } = await SpeechRecognition.available();
+        if (!available) {
+          alert('Speech recognition is not available on this device.');
+          return;
+        }
+
+        speechPrefixRef.current = text.trim() ? `${text.trim()} ` : '';
+        await removeNativeSpeechListeners();
+
+        const partialResultsHandle = await SpeechRecognition.addListener('partialResults', (event) => {
+          appendTranscript(event.accumulatedText || event.matches?.[0] || event.accumulated || '');
+        });
+        const listeningStateHandle = await SpeechRecognition.addListener('listeningState', (event) => {
+          if (event.state === 'stopped' || event.status === 'stopped') {
+            setIsListening(false);
+          }
+        });
+        const errorHandle = await SpeechRecognition.addListener('error', (event) => {
+          console.warn('Native speech recognition error', event.code, event.message);
+          setIsListening(false);
+        });
+        nativeSpeechListenerHandlesRef.current = [partialResultsHandle, listeningStateHandle, errorHandle];
+
+        await SpeechRecognition.start({
+          language: 'en-US',
+          maxResults: 1,
+          partialResults: true,
+          popup: false,
+        });
+        setIsListening(true);
+      } catch (error) {
+        console.error('Failed to start native speech recognition', error);
+        setIsListening(false);
+        await removeNativeSpeechListeners();
+        alert('Could not start voice dictation. Please try again.');
+      }
+      return;
+    }
+
+    const WebSpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!WebSpeechRecognition) {
       alert('Speech recognition is not supported in this browser. Try Chrome or Edge.');
       return;
     }
@@ -75,7 +162,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setIsListening(false);
     } else {
       try {
-        const recognition = new SpeechRecognition();
+        const recognition = new WebSpeechRecognition();
         // Allow continuous listening so the user can speak naturally with pauses
         recognition.continuous = true; 
         recognition.interimResults = true;
