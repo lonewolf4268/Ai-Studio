@@ -1,50 +1,24 @@
-# AI Studio
+# AI Studio (Android)
 
-An AI-powered chatbot application ported to a modern React + TypeScript web application with Express backend and Google Gemini API integration.
+Native Android AI Assistant application built with Kotlin, Jetpack Compose, Material 3, Room SQLite persistence, and direct Google Gemini API integration.
 
 ## Features
 
-- **Interactive Gemini Chat**: Conversational AI chatbot with context memory and streaming/formatted Markdown output.
-- **Image OCR & Vision Processing**: Client-side optical character recognition (OCR) and multimodal vision processing to recognize text from uploaded images and answer questions about them.
-- **Markdown & Code Highlighting**: Rich rendering of code snippets, tables, blockquotes, and formatting.
-- **Responsive Bubble Layout**: Faithful representation of the original AI Studio messenger interface.
-- **Generation Controls**: Stop streaming responses, edit prompts, resend them, and regenerate assistant replies from the original user turn.
-- **Workspace Backup & Restore**: Export and restore sessions, prompt snippets, settings, and attachments as a portable JSON backup.
+- **Interactive Gemini Chat**: Real-time conversational AI streaming using Google Gemini (`gemini-3.5-flash`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite-preview`).
+- **Multimodal Image Support**: Attach and send images to Gemini with automatic base64 encoding and inline analysis.
+- **Voice Dictation**: Speech-to-text input with native Android speech recognizer.
+- **Local Room Database**: Complete local persistence of chat sessions, message histories, reactions, categories, and tags.
+- **Session Management**: Create, organize, pin, rename, categorize (General, Work, Coding, Personal), and delete chat sessions.
+- **Prompt Templates**: Quick prompt shortcuts (Code Refactoring, Bug Fixer, Summarizer, ELI5) with custom template creation.
+- **Rich Message Controls**: Edit sent messages with conversation branch rewind, retry/regenerate responses, copy to clipboard, and give thumbs up/down reactions.
+- **Transcript Export**: Share or save chat transcripts as Markdown (`.md`) or plain text.
+- **Theming**: Full Dark Mode and Light Mode support adhering to Material Design 3 guidelines.
 
 ## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Tailwind CSS, Lucide Icons, Motion, React Markdown, Tesseract.js
-- **Backend**: Node.js, Express, `@google/genai` (Gemini 3.7 Flash)
-- **Mobile**: Capacitor 8 (Android)
-- **Bundler**: Vite
-
-## Android App Development
-
-AI Studio includes full native Android support via Capacitor:
-
-- **Build Web & Sync to Android**:
-  ```bash
-  npm run android:build
-  ```
-- **Open in Android Studio**:
-  ```bash
-  npm run android:open
-  ```
-  *(Or open the `android/` directory directly in Android Studio)*
-- **Run Directly on Device/Emulator**:
-  ```bash
-  npm run android:run
-  ```
-- **Build APK via Gradle**:
-  ```bash
-  cd android
-  .\gradlew.bat assembleDebug
-  ```
-  The resulting APK is located at `android/app/build/outputs/apk/debug/app-debug.apk`.
-
-### Mobile Backend Configuration
-When running on an Android Emulator or physical device:
-1. Tap the **Server Settings** (server icon) in the top app bar.
-2. For the **Android Emulator**, use the default: `http://10.0.2.2:3000`.
-3. For a **Physical Android Device**, enter your host machine's Wi-Fi IP address (e.g., `http://192.168.x.x:3000`).
-4. Click **Test Connection** to verify connectivity with the Express backend, then click **Save Configuration**.
+- **Language**: Kotlin 2.0+
+- **UI Framework**: Jetpack Compose with Material 3
+- **Architecture**: MVVM with Kotlin Coroutines & StateFlow
+- **Local Database**: Room SQLite (with KSP)
+- **Networking**: OkHttp & HttpURLConnection SSE streaming
+- **Build System**: Gradle Kotlin DSL (`build.gradle.kts`)
