@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -164,6 +165,24 @@ class ChatRepository(
                 sb.append("[${m.timestamp}] ${m.sender.name}: ${m.message}\n\n")
             }
             return@withContext sb.toString()
+        }
+    }
+
+    suspend fun exportTranscriptFile(context: Context, sessionId: String, format: String): File = withContext(Dispatchers.IO) {
+        val session = chatDao.getSessionById(sessionId)?.toDomain()
+        val title = session?.title ?: "Chat"
+        val messages = chatDao.getMessagesForSession(sessionId).map { it.toDomain() }
+
+        if (format.equals("pdf", ignoreCase = true)) {
+            return@withContext com.aistudio.app.util.PdfExporter.generatePdf(context, title, messages)
+        } else {
+            val content = exportTranscript(sessionId, format)
+            val ext = if (format.equals("md", ignoreCase = true)) "md" else "txt"
+            val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+            val cleanTitle = title.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(20).ifBlank { "Chat" }
+            val file = File(exportDir, "Transcript_${cleanTitle}_${System.currentTimeMillis()}.$ext")
+            file.writeText(content)
+            return@withContext file
         }
     }
 }

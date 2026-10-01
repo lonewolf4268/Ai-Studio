@@ -3,19 +3,41 @@ package com.aistudio.app.ui.components
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aistudio.app.data.model.ChatSession
 import com.aistudio.app.data.model.PromptTemplate
+
+data class PersonaPreset(
+    val name: String,
+    val icon: String,
+    val instruction: String
+)
+
+val personaPresets = listOf(
+    PersonaPreset("General AI", "🤖", "You are a helpful, versatile, and accurate AI assistant."),
+    PersonaPreset("Software Engineer", "💻", "You are an expert Senior Software Engineer. Provide clean, production-ready code with concise explanations, edge cases, and best architectural practices."),
+    PersonaPreset("Technical Writer", "✍️", "You are a skilled technical writer. Format information clearly using bold headings, structured bullet points, clean markdown, and concise prose."),
+    PersonaPreset("Patient Tutor", "🎓", "You are a patient, encouraging tutor. Explain complex concepts step-by-step using clear analogies, and ask engaging follow-up questions."),
+    PersonaPreset("Direct & Concise", "⚡", "You are a direct, zero-fluff AI assistant. Provide short, precise answers without preamble, disclaimers, or repetitive filler."),
+    PersonaPreset("Creative Writer", "🎨", "You are an imaginative storyteller and creative writer. Craft rich, engaging, vivid descriptions and creative prose.")
+)
 
 @Composable
 fun ServerSettingsDialog(
@@ -26,74 +48,175 @@ fun ServerSettingsDialog(
     onSave: (apiKey: String, model: String, instruction: String) -> Unit
 ) {
     var apiKeyInput by remember { mutableStateOf(currentApiKey) }
+    var isApiKeyVisible by remember { mutableStateOf(false) }
     var selectedModel by remember { mutableStateOf(currentModel) }
     var instructionInput by remember { mutableStateOf(currentInstruction) }
     var isModelMenuOpen by remember { mutableStateOf(false) }
 
-    val models = listOf("gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview")
+    val models = listOf(
+        Pair("gemini-3.5-flash", "Recommended • Fast & Multimodal"),
+        Pair("gemini-3.1-pro-preview", "Advanced Reasoning & Coding"),
+        Pair("gemini-3.1-flash-lite-preview", "Ultra-fast & Lightweight")
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Settings & API Key", fontWeight = FontWeight.Bold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text("AI Persona & Settings", fontWeight = FontWeight.Bold)
+            }
         },
         text = {
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Gemini API Key
-                OutlinedTextField(
-                    value = apiKeyInput,
-                    onValueChange = { apiKeyInput = it },
-                    label = { Text("Gemini API Key") },
-                    placeholder = { Text("AIzaSy...") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                )
-
-                // Model Selection Dropdown
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    OutlinedTextField(
-                        value = selectedModel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("AI Model") },
-                        trailingIcon = {
-                            IconButton(onClick = { isModelMenuOpen = true }) {
-                                Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Model")
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(8.dp)
+                // Section 1: Persona & System Instruction
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "System Persona & Instructions",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
-                    DropdownMenu(
-                        expanded = isModelMenuOpen,
-                        onDismissRequest = { isModelMenuOpen = false }
+                    Text(
+                        text = "Choose a preset persona or define custom instructions for Gemini to follow in all conversations:",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Persona Presets Chips
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        models.forEach { m ->
-                            DropdownMenuItem(
-                                text = { Text(m) },
-                                onClick = {
-                                    selectedModel = m
-                                    isModelMenuOpen = false
-                                }
+                        items(personaPresets) { preset ->
+                            val isSelected = instructionInput.trim() == preset.instruction.trim()
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { instructionInput = preset.instruction },
+                                label = {
+                                    Text("${preset.icon} ${preset.name}", fontSize = 12.sp)
+                                },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null
                             )
+                        }
+                    }
+
+                    // System Instruction Text Field
+                    OutlinedTextField(
+                        value = instructionInput,
+                        onValueChange = { instructionInput = it },
+                        label = { Text("System Instruction / Persona Prompt") },
+                        placeholder = { Text("Define how the AI should answer, its tone, or expertise...") },
+                        minLines = 3,
+                        maxLines = 6,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("system_instruction_input"),
+                        shape = RoundedCornerShape(12.dp),
+                        supportingText = {
+                            Text(
+                                text = "${instructionInput.length} characters",
+                                fontSize = 11.sp,
+                                modifier = Modifier.fillMaxWidth(),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    )
+                }
+
+                HorizontalDivider()
+
+                // Section 2: AI Model Selection
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "AI Model Selection",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            value = models.find { it.first == selectedModel }?.let { "${it.first} (${it.second})" } ?: selectedModel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Model Architecture") },
+                            trailingIcon = {
+                                IconButton(onClick = { isModelMenuOpen = true }) {
+                                    Icon(Icons.Default.ArrowDropDown, contentDescription = "Select Model")
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        DropdownMenu(
+                            expanded = isModelMenuOpen,
+                            onDismissRequest = { isModelMenuOpen = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            models.forEach { (mId, mDesc) ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(mId, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                            Text(mDesc, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedModel = mId
+                                        isModelMenuOpen = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
 
-                // System Instruction
-                OutlinedTextField(
-                    value = instructionInput,
-                    onValueChange = { instructionInput = it },
-                    label = { Text("System Instruction") },
-                    placeholder = { Text("You are a helpful AI...") },
-                    maxLines = 4,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                )
+                HorizontalDivider()
+
+                // Section 3: Gemini API Key
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "API Configuration",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = { apiKeyInput = it },
+                        label = { Text("Gemini API Key") },
+                        placeholder = { Text("AIzaSy...") },
+                        singleLine = true,
+                        visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
+                                Icon(
+                                    imageVector = if (isApiKeyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = "Toggle Visibility"
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("api_key_input"),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
             }
         },
         confirmButton = {
@@ -101,7 +224,8 @@ fun ServerSettingsDialog(
                 onClick = {
                     onSave(apiKeyInput.trim(), selectedModel, instructionInput.trim())
                     onDismiss()
-                }
+                },
+                modifier = Modifier.testTag("save_settings_button")
             ) {
                 Text("Save Settings")
             }

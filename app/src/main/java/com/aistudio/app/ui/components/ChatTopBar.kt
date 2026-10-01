@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 fun ChatTopBar(
     title: String,
     category: String,
+    activePersona: String? = null,
     onMenuClick: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenTemplates: () -> Unit,
@@ -36,9 +37,11 @@ fun ChatTopBar(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = category,
+                    text = if (!activePersona.isNullOrBlank()) "$category • Persona: $activePersona" else category,
                     style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         },
@@ -51,11 +54,17 @@ fun ChatTopBar(
             }
         },
         actions = {
+            IconButton(onClick = onOpenSettings) {
+                Icon(
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = "AI Persona & Settings",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             IconButton(onClick = onOpenTemplates) {
                 Icon(
                     imageVector = Icons.Default.Lightbulb,
-                    contentDescription = "Prompt Templates",
-                    tint = MaterialTheme.colorScheme.primary
+                    contentDescription = "Prompt Templates"
                 )
             }
             IconButton(onClick = onToggleDarkMode) {
@@ -76,11 +85,27 @@ fun ChatTopBar(
                 onDismissRequest = { showOptionsMenu = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text("Settings & API Key") },
-                    leadingIcon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    text = { Text("AI Persona & Settings") },
+                    leadingIcon = { Icon(Icons.Default.Psychology, contentDescription = null) },
                     onClick = {
                         showOptionsMenu = false
                         onOpenSettings()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Export as PDF (.pdf)") },
+                    leadingIcon = { Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                    onClick = {
+                        showOptionsMenu = false
+                        onExportTranscript("pdf")
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Export as Text (.txt)") },
+                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
+                    onClick = {
+                        showOptionsMenu = false
+                        onExportTranscript("txt")
                     }
                 )
                 DropdownMenuItem(
@@ -89,14 +114,6 @@ fun ChatTopBar(
                     onClick = {
                         showOptionsMenu = false
                         onExportTranscript("md")
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Export as Plaintext (.txt)") },
-                    leadingIcon = { Icon(Icons.Default.Description, contentDescription = null) },
-                    onClick = {
-                        showOptionsMenu = false
-                        onExportTranscript("txt")
                     }
                 )
                 HorizontalDivider()

@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,13 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aistudio.app.data.model.ChatMessage
 import com.aistudio.app.data.model.MessageSender
+import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MessageItemView(
     message: ChatMessage,
@@ -37,9 +42,30 @@ fun MessageItemView(
     val context = LocalContext.current
     var isEditing by remember { mutableStateOf(false) }
     var editInputText by remember { mutableStateOf(message.message) }
+    var isCopied by remember { mutableStateOf(false) }
 
     val isUser = message.sender == MessageSender.YOU
     val isAppError = message.sender == MessageSender.APP
+
+    // Reset copy state after 2 seconds
+    LaunchedEffect(isCopied) {
+        if (isCopied) {
+            delay(2000)
+            isCopied = false
+        }
+    }
+
+    val copyToClipboard = {
+        try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val label = if (isUser) "User Message" else "AI Response"
+            clipboard.setPrimaryClip(ClipData.newPlainText(label, message.message))
+            isCopied = true
+            Toast.makeText(context, if (isUser) "Message copied to clipboard" else "AI response copied to clipboard", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(context, "Copy failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -101,7 +127,7 @@ fun MessageItemView(
             }
         }
 
-        // Message Bubble
+        // Message Bubble with Long-Press to Copy
         Surface(
             shape = RoundedCornerShape(
                 topStart = 16.dp,
@@ -114,7 +140,12 @@ fun MessageItemView(
                 isUser -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.surfaceVariant
             },
-            modifier = Modifier.widthIn(max = 340.dp)
+            modifier = Modifier
+                .widthIn(max = 340.dp)
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = { copyToClipboard() }
+                )
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
                 if (isEditing) {
@@ -158,22 +189,21 @@ fun MessageItemView(
         // Action Toolbar (Copy, Reactions, Retry, Edit)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(top = 2.dp, start = 4.dp, end = 4.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
         ) {
-            // Copy button
+            // Enhanced Copy Button with Visual Feedback
             IconButton(
-                onClick = {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("Chat Message", message.message))
-                    Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                },
-                modifier = Modifier.size(26.dp)
+                onClick = copyToClipboard,
+                modifier = Modifier
+                    .size(28.dp)
+                    .testTag("copy_response_button")
             ) {
                 Icon(
-                    imageVector = Icons.Default.ContentCopy,
-                    contentDescription = "Copy",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(14.dp)
+                    imageVector = if (isCopied) Icons.Default.Check else Icons.Default.ContentCopy,
+                    contentDescription = "Copy Response",
+                    tint = if (isCopied) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(15.dp)
                 )
             }
 
@@ -184,13 +214,13 @@ fun MessageItemView(
                         val next = if (message.reaction == "thumbs-up") null else "thumbs-up"
                         onReaction(next)
                     },
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ThumbUp,
                         contentDescription = "Like",
                         tint = if (message.reaction == "thumbs-up") MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
 
@@ -200,26 +230,26 @@ fun MessageItemView(
                         val next = if (message.reaction == "thumbs-down") null else "thumbs-down"
                         onReaction(next)
                     },
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.ThumbDown,
                         contentDescription = "Dislike",
                         tint = if (message.reaction == "thumbs-down") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
 
                 // Retry
                 IconButton(
                     onClick = onRetry,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Regenerate",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -231,13 +261,13 @@ fun MessageItemView(
                         editInputText = message.message
                         isEditing = true
                     },
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Prompt",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(14.dp)
+                        modifier = Modifier.size(15.dp)
                     )
                 }
             }
@@ -245,13 +275,13 @@ fun MessageItemView(
             // Delete message
             IconButton(
                 onClick = onDelete,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(28.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.DeleteOutline,
                     contentDescription = "Delete",
                     tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(15.dp)
                 )
             }
         }
@@ -324,6 +354,15 @@ private fun RenderMarkdownContent(
 @Composable
 private fun CodeBlockView(language: String, code: String) {
     val context = LocalContext.current
+    var isCodeCopied by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isCodeCopied) {
+        if (isCodeCopied) {
+            delay(2000)
+            isCodeCopied = false
+        }
+    }
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = Color(0xFF1E1E1E),
@@ -344,19 +383,27 @@ private fun CodeBlockView(language: String, code: String) {
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(
+                TextButton(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("Code", code))
-                        Toast.makeText(context, "Code copied", Toast.LENGTH_SHORT).show()
+                        isCodeCopied = true
+                        Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
                     },
-                    modifier = Modifier.size(20.dp)
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                    modifier = Modifier.height(24.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.ContentCopy,
+                        imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
                         contentDescription = "Copy code",
-                        tint = Color.LightGray,
+                        tint = if (isCodeCopied) Color(0xFF81C784) else Color.LightGray,
                         modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isCodeCopied) "Copied" else "Copy Code",
+                        color = if (isCodeCopied) Color(0xFF81C784) else Color.LightGray,
+                        fontSize = 10.sp
                     )
                 }
             }

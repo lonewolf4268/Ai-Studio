@@ -411,4 +411,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun exportTranscript(format: String): String {
         return repository.exportTranscript(_uiState.value.currentSessionId, format)
     }
+
+    suspend fun exportTranscriptFile(context: android.content.Context, format: String): java.io.File {
+        return repository.exportTranscriptFile(context, _uiState.value.currentSessionId, format)
+    }
 }

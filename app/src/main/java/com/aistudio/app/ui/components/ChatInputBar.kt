@@ -2,6 +2,7 @@ package com.aistudio.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -15,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aistudio.app.data.model.Attachment
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatInputBar(
     inputText: String,
@@ -32,8 +35,11 @@ fun ChatInputBar(
     onSend: () -> Unit,
     onStopStreaming: () -> Unit,
     isStreaming: Boolean,
-    isLoading: Boolean
+    isLoading: Boolean,
+    isListening: Boolean = false
 ) {
+    var showAttachmentMenu by remember { mutableStateOf(false) }
+
     Surface(
         tonalElevation = 6.dp,
         color = MaterialTheme.colorScheme.surface,
@@ -101,31 +107,16 @@ fun ChatInputBar(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Take Photo Camera Button
+                // Unified Attachment Icon Button
                 IconButton(
-                    onClick = onTakePhoto,
+                    onClick = { showAttachmentMenu = true },
                     modifier = Modifier
                         .size(38.dp)
-                        .testTag("take_photo_button")
+                        .testTag("attach_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Take Photo",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                // Attach Gallery Image Button
-                IconButton(
-                    onClick = onPickImage,
-                    modifier = Modifier
-                        .size(38.dp)
-                        .testTag("attach_photo_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AddPhotoAlternate,
-                        contentDescription = "Attach Gallery Image",
+                        imageVector = Icons.Default.AttachFile,
+                        contentDescription = "Add Attachment",
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
@@ -136,12 +127,17 @@ fun ChatInputBar(
                     onClick = onVoiceInputClick,
                     modifier = Modifier
                         .size(38.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isListening) MaterialTheme.colorScheme.errorContainer
+                            else MaterialTheme.colorScheme.surface
+                        )
                         .testTag("voice_input_button")
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Mic,
+                        imageVector = if (isListening) Icons.Default.GraphicEq else Icons.Default.Mic,
                         contentDescription = "Voice Input",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -158,8 +154,13 @@ fun ChatInputBar(
                         .testTag("input_text_field"),
                     placeholder = {
                         Text(
-                            text = if (stagedAttachments.isNotEmpty()) "Ask about photo..." else "Ask Gemini...",
-                            fontSize = 13.sp
+                            text = when {
+                                isListening -> "Listening to speech..."
+                                stagedAttachments.isNotEmpty() -> "Ask about photo..."
+                                else -> "Ask Gemini..."
+                            },
+                            fontSize = 13.sp,
+                            color = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     },
                     maxLines = 5,
@@ -211,4 +212,125 @@ fun ChatInputBar(
             }
         }
     }
+
+    // Attachment Chooser Modal Bottom Sheet
+    if (showAttachmentMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showAttachmentMenu = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Add Attachment",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Option 1: Camera / Take photo
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showAttachmentMenu = false
+                            onTakePhoto()
+                        }
+                        .testTag("take_photo_button")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = "Take Photo",
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Take Photo",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Use camera to capture a new photo",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Option 2: Upload / Choose from Gallery
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showAttachmentMenu = false
+                            onPickImage()
+                        }
+                        .testTag("attach_photo_button")
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.AddPhotoAlternate,
+                                    contentDescription = "Upload Image",
+                                    tint = MaterialTheme.colorScheme.onSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                text = "Upload Image",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Choose an image file from your gallery",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
 }
+

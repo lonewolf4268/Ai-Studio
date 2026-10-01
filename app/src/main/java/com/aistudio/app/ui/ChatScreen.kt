@@ -141,48 +141,106 @@ fun ChatScreen(
         }
     }
 
+    var isListeningSpeech by remember { mutableStateOf(false) }
+
     // Speech Recognition Launcher
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
+        isListeningSpeech = false
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             if (!matches.isNullOrEmpty()) {
                 val spokenText = matches[0]
                 inputText = if (inputText.isBlank()) spokenText else "$inputText $spokenText"
+                Toast.makeText(context, "Speech added to prompt", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    // Microphone Permission Launcher for Speech-to-Text
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                isListeningSpeech = true
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Dictate prompt to Gemini AI...")
+                }
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                isListeningSpeech = false
+                Toast.makeText(context, "Speech recognition is not available on this device", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Microphone permission is required for voice dictation", Toast.LENGTH_LONG).show()
         }
     }
 
     val startVoiceInput: () -> Unit = {
-        try {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to Gemini...")
+        if (androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.RECORD_AUDIO
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            try {
+                isListeningSpeech = true
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Dictate prompt to Gemini AI...")
+                }
+                speechLauncher.launch(intent)
+            } catch (e: Exception) {
+                isListeningSpeech = false
+                Toast.makeText(context, "Speech recognition is not available on this device", Toast.LENGTH_SHORT).show()
             }
-            speechLauncher.launch(intent)
-        } catch (_: Exception) {
-            Toast.makeText(context, "Speech recognition is not available on this device", Toast.LENGTH_SHORT).show()
+        } else {
+            audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
 
-    // Export Transcript Action
+    // Export Transcript Action (PDF, Text, or Markdown File)
     val handleExportTranscript: (String) -> Unit = { format ->
         coroutineScope.launch {
             try {
-                val content = viewModel.exportTranscript(format)
-                val sendIntent = Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, content)
-                    putExtra(Intent.EXTRA_TITLE, "AI Studio Transcript")
-                    type = "text/plain"
+                val file = viewModel.exportTranscriptFile(context, format)
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                val mimeType = when (format.lowercase()) {
+                    "pdf" -> "application/pdf"
+                    "md" -> "text/markdown"
+                    else -> "text/plain"
                 }
-                val shareIntent = Intent.createChooser(sendIntent, "Export Chat Transcript")
+                val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_TITLE, file.name)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                val chooserTitle = when (format.lowercase()) {
+                    "pdf" -> "Export Chat as PDF Document"
+                    "md" -> "Export Chat as Markdown"
+                    else -> "Export Chat as Text File"
+                }
+                val shareIntent = Intent.createChooser(sendIntent, chooserTitle)
                 context.startActivity(shareIntent)
             } catch (e: Exception) {
                 Toast.makeText(context, "Export error: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    val activePersonaName = remember(uiState.systemInstruction) {
+        val sys = uiState.systemInstruction.trim()
+        val matched = personaPresets.find { it.instruction.trim() == sys }
+        matched?.name ?: if (sys.isNotBlank()) "Custom" else "General AI"
     }
 
     ModalNavigationDrawer(
@@ -215,6 +273,7 @@ fun ChatScreen(
                 ChatTopBar(
                     title = currentSession?.title ?: "AI Studio",
                     category = currentSession?.category ?: "General",
+                    activePersona = activePersonaName,
                     onMenuClick = { coroutineScope.launch { drawerState.open() } },
                     onOpenSettings = { isSettingsOpen = true },
                     onOpenTemplates = { isTemplatesOpen = true },
@@ -241,7 +300,8 @@ fun ChatScreen(
                     },
                     onStopStreaming = { viewModel.stopStreaming() },
                     isStreaming = uiState.isStreaming,
-                    isLoading = uiState.isLoading
+                    isLoading = uiState.isLoading,
+                    isListening = isListeningSpeech
                 )
             }
         ) { paddingValues ->
