@@ -1,5 +1,0 @@
-package com.aistudio.app;
-
-import com.getcapacitor.BridgeActivity;
-
-public class MainActivity extends BridgeActivity {}
