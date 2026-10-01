@@ -55,6 +55,10 @@ class GeminiService(
         attachments: List<Attachment>,
         userPrompt: String
     ): Flow<String> = flow {
+        val apiKey = getApiKey().trim()
+        if (apiKey.isBlank()) {
+            throw IllegalArgumentException("Gemini API Key is missing. Please open Settings (gear icon in the top right bar) to enter your API Key.")
+        }
         val generativeModel = createGenerativeModel()
 
         // Build conversation history content turns

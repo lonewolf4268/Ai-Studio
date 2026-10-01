@@ -37,7 +37,8 @@ fun MessageItemView(
     onEdit: (String) -> Unit,
     onDelete: () -> Unit,
     onReaction: (String?) -> Unit,
-    onSuggestionClick: (String) -> Unit
+    onSuggestionClick: (String) -> Unit,
+    onOpenSettings: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
     var isEditing by remember { mutableStateOf(false) }
@@ -182,6 +183,18 @@ fun MessageItemView(
                         isUser = isUser,
                         isError = isAppError
                     )
+
+                    if (isAppError && onOpenSettings != null && (message.message.contains("API Key", ignoreCase = true) || message.message.contains("Settings", ignoreCase = true))) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = { onOpenSettings() },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Configure API Key", fontSize = 12.sp)
+                        }
+                    }
                 }
             }
         }

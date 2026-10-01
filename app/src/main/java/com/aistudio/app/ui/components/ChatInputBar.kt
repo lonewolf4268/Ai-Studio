@@ -45,7 +45,7 @@ fun ChatInputBar(
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
+            .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))
             .testTag("chat_input_bar")
     ) {
         Column(

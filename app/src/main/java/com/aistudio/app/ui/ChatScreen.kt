@@ -268,7 +268,6 @@ fun ChatScreen(
         }
     ) {
         Scaffold(
-            contentWindowInsets = WindowInsets.ime,
             topBar = {
                 ChatTopBar(
                     title = currentSession?.title ?: "AI Studio",
@@ -358,22 +357,28 @@ fun ChatScreen(
                             .testTag("chat_message_list"),
                         contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                     ) {
-                        // Render historical messages
+                        // Render historical and active messages from Room database
                         items(uiState.messages, key = { it.id }) { msg ->
+                            val displayMsg = if (msg.id == uiState.streamingMessageId && uiState.streamingText.isNotBlank()) {
+                                msg.copy(message = uiState.streamingText)
+                            } else {
+                                msg
+                            }
                             MessageItemView(
-                                message = msg,
+                                message = displayMsg,
                                 onRetry = { viewModel.retryMessage(msg.id) },
                                 onEdit = { newText -> viewModel.editMessage(msg.id, newText) },
                                 onDelete = { viewModel.deleteMessage(msg.id) },
                                 onReaction = { reaction -> viewModel.setReaction(msg.id, reaction) },
                                 onSuggestionClick = { suggestion ->
                                     viewModel.sendMessage(suggestion)
-                                }
+                                },
+                                onOpenSettings = { isSettingsOpen = true }
                             )
                         }
 
-                        // Render active streaming message item
-                        if (uiState.isStreaming && uiState.streamingMessageId != null) {
+                        // Render active streaming message fallback item if not yet present in uiState.messages
+                        if (uiState.isStreaming && uiState.streamingMessageId != null && uiState.messages.none { it.id == uiState.streamingMessageId }) {
                             item(key = uiState.streamingMessageId) {
                                 val tempMsg = ChatMessage(
                                     id = uiState.streamingMessageId!!,

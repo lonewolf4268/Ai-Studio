@@ -21,7 +21,16 @@ class PreferencesManager(context: Context) {
     }
 
     var apiKey: String
-        get() = prefs.getString(KEY_API_KEY, "") ?: ""
+        get() {
+            val userKey = prefs.getString(KEY_API_KEY, "") ?: ""
+            if (userKey.isNotBlank()) return userKey
+            return try {
+                val field = com.aistudio.app.BuildConfig::class.java.getField("GEMINI_API_KEY")
+                (field.get(null) as? String) ?: ""
+            } catch (_: Exception) {
+                ""
+            }
+        }
         set(value) = prefs.edit().putString(KEY_API_KEY, value).apply()
 
     var modelName: String

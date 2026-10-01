@@ -221,7 +221,19 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         activeStreamJob = viewModelScope.launch {
+            val initialAiMessage = ChatMessage(
+                id = aiMessageId,
+                sessionId = sessionId,
+                sender = MessageSender.AI,
+                message = "Thinking...",
+                timestamp = timestamp
+            )
+            // Immediately persist initial AI message placeholder to Room database
+            repository.saveMessage(initialAiMessage)
+
             val accumulated = StringBuilder()
+            var lastDbSaveTime = System.currentTimeMillis()
+
             try {
                 repository.streamAiResponse(
                     history = fullHistory,
@@ -229,43 +241,54 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     prompt = userMsg.message
                 ).collect { chunk ->
                     accumulated.append(chunk)
-                    _uiState.update { it.copy(streamingText = accumulated.toString(), isLoading = false) }
+                    val currentText = accumulated.toString()
+                    _uiState.update { it.copy(streamingText = currentText, isLoading = false) }
+
+                    // Periodically persist streaming chunks to Room database (every 150ms)
+                    val now = System.currentTimeMillis()
+                    if (now - lastDbSaveTime >= 150) {
+                        lastDbSaveTime = now
+                        repository.saveMessage(initialAiMessage.copy(message = currentText))
+                    }
                 }
 
                 val finalAiMessageText = if (accumulated.isNotBlank()) accumulated.toString() else "No response generated."
-                val aiMessage = ChatMessage(
-                    id = aiMessageId,
-                    sessionId = sessionId,
-                    sender = MessageSender.AI,
-                    message = finalAiMessageText,
-                    timestamp = timestamp
-                )
+                val aiMessage = initialAiMessage.copy(message = finalAiMessageText)
                 repository.saveMessage(aiMessage)
 
-                // Generate quick follow-up suggestions in background
+                // Generate quick follow-up suggestions in background and persist
                 val suggestions = repository.generateFollowUpSuggestions(fullHistory + aiMessage)
                 if (suggestions.isNotEmpty()) {
-                    repository.updateMessage(aiMessage.copy(suggestions = suggestions))
+                    repository.saveMessage(aiMessage.copy(suggestions = suggestions))
                 }
 
             } catch (e: Exception) {
                 if (accumulated.isNotEmpty()) {
-                    val partialAiMessage = ChatMessage(
-                        id = aiMessageId,
-                        sessionId = sessionId,
-                        sender = MessageSender.AI,
-                        message = accumulated.toString(),
-                        timestamp = timestamp
-                    )
+                    val partialAiMessage = initialAiMessage.copy(message = accumulated.toString())
                     repository.saveMessage(partialAiMessage)
                 } else {
+                    val rawErr = e.message ?: ""
+                    val isApiKeyError = rawErr.contains("API Key", ignoreCase = true) ||
+                            rawErr.contains("PERMISSION_DENIED", ignoreCase = true) ||
+                            rawErr.contains("unregistered callers", ignoreCase = true) ||
+                            rawErr.contains("GRpcError", ignoreCase = true) ||
+                            rawErr.contains("403", ignoreCase = true)
+
+                    val userFriendlyMsg = if (isApiKeyError) {
+                        "⚠️ Gemini API Key Required\n\nTo start chatting with Gemini AI, please enter your API Key in Settings (tap the ⚙️ icon in the top bar)."
+                    } else {
+                        rawErr.ifBlank { "Failed to connect to Gemini AI." }
+                    }
+
                     val errorMsg = ChatMessage(
                         id = "err-${System.currentTimeMillis()}",
                         sessionId = sessionId,
                         sender = MessageSender.APP,
-                        message = e.message ?: "Failed to connect to AI Studio.",
+                        message = userFriendlyMsg,
                         timestamp = timestamp
                     )
+                    // Remove the placeholder if error occurred before any text was received
+                    repository.deleteMessage(aiMessageId)
                     repository.saveMessage(errorMsg)
                 }
             } finally {
@@ -287,16 +310,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val curId = _uiState.value.streamingMessageId
         val curText = _uiState.value.streamingText
         val sessionId = _uiState.value.currentSessionId
-        if (curId != null && curText.isNotBlank()) {
+        if (curId != null) {
             viewModelScope.launch {
-                val stoppedMsg = ChatMessage(
-                    id = curId,
-                    sessionId = sessionId,
-                    sender = MessageSender.AI,
-                    message = curText,
-                    timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-                )
-                repository.saveMessage(stoppedMsg)
+                if (curText.isNotBlank()) {
+                    val stoppedMsg = ChatMessage(
+                        id = curId,
+                        sessionId = sessionId,
+                        sender = MessageSender.AI,
+                        message = curText,
+                        timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                    )
+                    repository.saveMessage(stoppedMsg)
+                } else {
+                    repository.deleteMessage(curId)
+                }
             }
         }
         _uiState.update {
