@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.sp
 import com.aistudio.app.data.model.ChatSession
 import com.aistudio.app.data.model.PromptTemplate
 
+import androidx.compose.ui.window.DialogProperties
+
 data class PersonaPreset(
     val name: String,
     val icon: String,
@@ -61,6 +63,16 @@ fun ServerSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        ),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .statusBarsPadding()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(vertical = 12.dp),
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -253,6 +265,16 @@ fun EditSessionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        ),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .statusBarsPadding()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(vertical = 12.dp),
         title = {
             Text("Edit Chat Session", fontWeight = FontWeight.Bold)
         },
@@ -344,6 +366,16 @@ fun PromptTemplatesDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        ),
+        modifier = Modifier
+            .fillMaxWidth(0.92f)
+            .statusBarsPadding()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(vertical = 12.dp),
         title = {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
