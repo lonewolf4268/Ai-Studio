@@ -1,5 +1,11 @@
 package com.aistudio.app.ui.components
 
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,6 +20,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -21,10 +31,10 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
+import com.aistudio.app.data.model.Attachment
 import com.aistudio.app.data.model.ChatSession
 import com.aistudio.app.data.model.PromptTemplate
-
-import androidx.compose.ui.window.DialogProperties
 
 data class PersonaPreset(
     val name: String,
@@ -485,3 +495,179 @@ fun PromptTemplatesDialog(
         }
     )
 }
+
+@Composable
+fun rememberAttachmentBitmap(attachment: Attachment, targetSizePx: Int = 400): ImageBitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(attachment, targetSizePx) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(attachment, targetSizePx) {
+        kotlinx.coroutines.Dispatchers.IO.let { dispatcher ->
+            kotlinx.coroutines.withContext(dispatcher) {
+                bitmap = decodeAttachmentBitmap(context, attachment, targetSizePx)
+            }
+        }
+    }
+
+    return bitmap
+}
+
+fun decodeAttachmentBitmap(context: Context, attachment: Attachment, targetSizePx: Int = 400): ImageBitmap? {
+    return try {
+        if (!attachment.base64Data.isNullOrBlank()) {
+            val cleanBase64 = if (attachment.base64Data.contains(",")) {
+                attachment.base64Data.substringAfter(",")
+            } else {
+                attachment.base64Data
+            }
+            val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+            if (targetSizePx <= 0) {
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            } else {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+                options.inSampleSize = calculateInSampleSize(options, targetSizePx, targetSizePx)
+                options.inJustDecodeBounds = false
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)?.asImageBitmap()
+            }
+        } else if (attachment.uri.isNotBlank() && !attachment.uri.startsWith("camera://")) {
+            val uri = Uri.parse(attachment.uri)
+            if (targetSizePx <= 0) {
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            } else {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)
+                }
+                options.inSampleSize = calculateInSampleSize(options, targetSizePx, targetSizePx)
+                options.inJustDecodeBounds = false
+                context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, options)?.asImageBitmap()
+                }
+            }
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+    val (height: Int, width: Int) = options.outHeight to options.outWidth
+    var inSampleSize = 1
+    if (height > reqHeight || width > reqWidth) {
+        val halfHeight: Int = height / 2
+        val halfWidth: Int = width / 2
+        while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
+}
+
+@Composable
+fun ImagePreviewDialog(
+    attachment: Attachment,
+    onDismiss: () -> Unit,
+    onRemove: (() -> Unit)? = null
+) {
+    val imageBitmap = rememberAttachmentBitmap(attachment, targetSizePx = 1200)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        ),
+        modifier = Modifier
+            .fillMaxWidth(0.95f)
+            .statusBarsPadding()
+            .imePadding()
+            .navigationBarsPadding()
+            .padding(vertical = 12.dp),
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Image Preview",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = attachment.name,
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+            }
+        },
+        text = {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 220.dp, max = 420.dp)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp))
+                    .padding(8.dp)
+            ) {
+                if (imageBitmap != null) {
+                    Image(
+                        bitmap = imageBitmap,
+                        contentDescription = attachment.name,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .testTag("preview_full_image")
+                    )
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(36.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Loading preview...",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Row(
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (onRemove != null) {
+                    Button(
+                        onClick = onRemove,
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.testTag("dialog_remove_image_button")
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Remove Image")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Close")
+                }
+            }
+        }
+    )
+}
+

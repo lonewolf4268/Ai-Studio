@@ -4,7 +4,11 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -19,12 +23,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.aistudio.app.data.model.Attachment
 import com.aistudio.app.data.model.ChatMessage
 import com.aistudio.app.data.model.MessageSender
 import kotlinx.coroutines.delay
@@ -44,9 +50,17 @@ fun MessageItemView(
     var isEditing by remember { mutableStateOf(false) }
     var editInputText by remember { mutableStateOf(message.message) }
     var isCopied by remember { mutableStateOf(false) }
+    var previewAttachment by remember { mutableStateOf<Attachment?>(null) }
 
     val isUser = message.sender == MessageSender.YOU
     val isAppError = message.sender == MessageSender.APP
+
+    previewAttachment?.let { att ->
+        ImagePreviewDialog(
+            attachment = att,
+            onDismiss = { previewAttachment = null }
+        )
+    }
 
     // Reset copy state after 2 seconds
     LaunchedEffect(isCopied) {
@@ -101,27 +115,35 @@ fun MessageItemView(
                     .widthIn(max = 320.dp)
             ) {
                 items(message.attachments) { att ->
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.padding(2.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    val isImage = att.mimeType.startsWith("image/") || att.base64Data != null || att.uri.startsWith("camera://")
+                    if (isImage) {
+                        MessageImageThumbnail(
+                            attachment = att,
+                            onClick = { previewAttachment = att }
+                        )
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.padding(2.dp)
                         ) {
-                            Icon(
-                                imageVector = if (att.mimeType.startsWith("image/")) Icons.Default.Image else Icons.Default.AttachFile,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = att.name,
-                                fontSize = 11.sp,
-                                maxLines = 1
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AttachFile,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = att.name,
+                                    fontSize = 11.sp,
+                                    maxLines = 1
+                                )
+                            }
                         }
                     }
                 }
@@ -436,3 +458,45 @@ private fun CodeBlockView(language: String, code: String) {
         }
     }
 }
+
+@Composable
+private fun MessageImageThumbnail(
+    attachment: Attachment,
+    onClick: () -> Unit
+) {
+    val imageBitmap = rememberAttachmentBitmap(attachment, targetSizePx = 300)
+
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)),
+        modifier = Modifier
+            .size(90.dp, 70.dp)
+            .clickable { onClick() }
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (imageBitmap != null) {
+                Image(
+                    bitmap = imageBitmap,
+                    contentDescription = attachment.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
