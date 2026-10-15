@@ -31,7 +31,7 @@ class GeminiApiService(
         userPrompt: String
     ): Flow<String> = flow {
         val apiKey = getApiKey().trim()
-        val model = getModelName().ifBlank { "gemini-3.5-flash" }
+        val model = getModelName().ifBlank { "gemini-2.5-flash" }
 
         val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$model:streamGenerateContent?alt=sse&key=$apiKey"
         val url = URL(endpointUrl)
@@ -187,7 +187,7 @@ class GeminiApiService(
         if (apiKey.isBlank() || history.isEmpty()) return@withContext emptyList()
 
         try {
-            val model = "gemini-3.5-flash"
+            val model = "gemini-2.5-flash"
             val endpointUrl = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
             val url = URL(endpointUrl)
             val conn = (url.openConnection() as HttpURLConnection).apply {

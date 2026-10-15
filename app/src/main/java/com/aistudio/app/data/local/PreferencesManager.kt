@@ -22,19 +22,22 @@ class PreferencesManager(context: Context) {
 
     var apiKey: String
         get() {
-            val userKey = prefs.getString(KEY_API_KEY, "") ?: ""
+            val userKey = prefs.getString(KEY_API_KEY, "")?.trim() ?: ""
             if (userKey.isNotBlank()) return userKey
             return try {
                 val field = com.aistudio.app.BuildConfig::class.java.getField("GEMINI_API_KEY")
-                (field.get(null) as? String) ?: ""
+                ((field.get(null) as? String) ?: "").trim()
             } catch (_: Exception) {
                 ""
             }
         }
-        set(value) = prefs.edit().putString(KEY_API_KEY, value).apply()
+        set(value) = prefs.edit().putString(KEY_API_KEY, value.trim()).apply()
 
     var modelName: String
-        get() = prefs.getString(KEY_MODEL_NAME, "gemini-3.5-flash") ?: "gemini-3.5-flash"
+        get() {
+            val saved = prefs.getString(KEY_MODEL_NAME, "gemini-2.5-flash") ?: "gemini-2.5-flash"
+            return if (saved.startsWith("gemini-3") || saved.isBlank()) "gemini-2.5-flash" else saved
+        }
         set(value) = prefs.edit().putString(KEY_MODEL_NAME, value).apply()
 
     var systemInstruction: String

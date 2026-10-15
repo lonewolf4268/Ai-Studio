@@ -1,0 +1,19 @@
+{
+	"appId": "com.aistudio.app",
+	"appName": "AI Studio",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "http",
+		"cleartext": true,
+		"allowMixedContent": true
+	},
+	"plugins": {
+		"Keyboard": {
+			"resize": "body",
+			"resizeOnFullScreen": true
+		},
+		"StatusBar": {
+			"overlaysWebView": false
+		}
+	}
+}

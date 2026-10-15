@@ -30,7 +30,7 @@ data class ChatUiState(
     val autoScroll: Boolean = true,
     val templates: List<PromptTemplate> = emptyList(),
     val apiKey: String = "",
-    val modelName: String = "gemini-3.5-flash",
+    val modelName: String = "gemini-2.5-flash",
     val systemInstruction: String = "",
     val stagedAttachments: List<Attachment> = emptyList()
 )
@@ -268,16 +268,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     repository.saveMessage(partialAiMessage)
                 } else {
                     val rawErr = e.message ?: ""
-                    val isApiKeyError = rawErr.contains("API Key", ignoreCase = true) ||
-                            rawErr.contains("PERMISSION_DENIED", ignoreCase = true) ||
-                            rawErr.contains("unregistered callers", ignoreCase = true) ||
-                            rawErr.contains("GRpcError", ignoreCase = true) ||
-                            rawErr.contains("403", ignoreCase = true)
+                    val currentKey = preferencesManager.apiKey.trim()
 
-                    val userFriendlyMsg = if (isApiKeyError) {
-                        "⚠️ Gemini API Key Required\n\nTo start chatting with Gemini AI, please enter your API Key in Settings (tap the ⚙️ icon in the top bar)."
-                    } else {
-                        rawErr.ifBlank { "Failed to connect to Gemini AI." }
+                    val userFriendlyMsg = when {
+                        currentKey.isBlank() -> {
+                            "⚠️ Gemini API Key Required\n\nTo start chatting with Gemini AI, please enter your API Key in Settings (tap the ⚙️ icon in the top bar)."
+                        }
+                        rawErr.contains("API_KEY_INVALID", ignoreCase = true) ||
+                        rawErr.contains("API key not valid", ignoreCase = true) ||
+                        rawErr.contains("unregistered callers", ignoreCase = true) -> {
+                            "⚠️ Invalid Gemini API Key\n\nThe entered API Key was rejected by Google Gemini API. Please check your API Key in Settings (⚙️ icon).\n\nDetails: $rawErr"
+                        }
+                        else -> {
+                            "⚠️ Connection Error\n\n${rawErr.ifBlank { "Failed to connect to Gemini AI. Please check your internet connection and API Key." }}"
+                        }
                     }
 
                     val errorMsg = ChatMessage(

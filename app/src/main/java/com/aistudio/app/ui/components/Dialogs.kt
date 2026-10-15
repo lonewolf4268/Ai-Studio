@@ -66,9 +66,10 @@ fun ServerSettingsDialog(
     var isModelMenuOpen by remember { mutableStateOf(false) }
 
     val models = listOf(
-        Pair("gemini-3.5-flash", "Recommended • Fast & Multimodal"),
-        Pair("gemini-3.1-pro-preview", "Advanced Reasoning & Coding"),
-        Pair("gemini-3.1-flash-lite-preview", "Ultra-fast & Lightweight")
+        Pair("gemini-2.5-flash", "Recommended • Fast & Multimodal"),
+        Pair("gemini-2.5-pro", "Advanced Reasoning & Coding"),
+        Pair("gemini-2.0-flash", "Ultra-fast & Lightweight"),
+        Pair("gemini-1.5-flash", "Legacy • Multimodal")
     )
 
     AlertDialog(

@@ -30,7 +30,7 @@ class GeminiService(
      */
     private fun createGenerativeModel(systemInstructionText: String? = null): GenerativeModel {
         val apiKey = getApiKey().trim()
-        val modelName = getModelName().ifBlank { "gemini-3.5-flash" }
+        val modelName = getModelName().ifBlank { "gemini-2.5-flash" }
         val sysInstruction = systemInstructionText ?: getSystemInstruction().trim()
 
         return GenerativeModel(
@@ -131,7 +131,7 @@ class GeminiService(
 
         try {
             val suggestionModel = GenerativeModel(
-                modelName = "gemini-3.5-flash",
+                modelName = "gemini-2.5-flash",
                 apiKey = apiKey
             )
             val contextHistory = history.takeLast(4).joinToString("\n") { "${it.sender.name}: ${it.message}" }
