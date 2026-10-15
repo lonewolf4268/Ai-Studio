@@ -36,7 +36,7 @@ class PreferencesManager(context: Context) {
     var modelName: String
         get() {
             val saved = prefs.getString(KEY_MODEL_NAME, "gemini-2.5-flash") ?: "gemini-2.5-flash"
-            return if (saved.startsWith("gemini-3") || saved.isBlank()) "gemini-2.5-flash" else saved
+            return if (saved.isBlank()) "gemini-2.5-flash" else saved
         }
         set(value) = prefs.edit().putString(KEY_MODEL_NAME, value).apply()
 

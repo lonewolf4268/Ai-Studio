@@ -67,9 +67,9 @@ fun ServerSettingsDialog(
 
     val models = listOf(
         Pair("gemini-2.5-flash", "Recommended • Fast & Multimodal"),
-        Pair("gemini-2.5-pro", "Advanced Reasoning & Coding"),
-        Pair("gemini-2.0-flash", "Ultra-fast & Lightweight"),
-        Pair("gemini-1.5-flash", "Legacy • Multimodal")
+        Pair("gemini-3.5-flash", "Next-Gen • Intelligent & Fast"),
+        Pair("gemini-3.1-pro-preview", "Advanced Reasoning & Coding"),
+        Pair("gemini-flash-latest", "Always Latest Flash Model")
     )
 
     AlertDialog(

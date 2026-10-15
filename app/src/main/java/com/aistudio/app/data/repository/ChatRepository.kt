@@ -9,7 +9,7 @@ import com.aistudio.app.data.model.Attachment
 import com.aistudio.app.data.model.ChatMessage
 import com.aistudio.app.data.model.ChatSession
 import com.aistudio.app.data.model.MessageSender
-import com.aistudio.app.data.remote.GeminiService
+import com.aistudio.app.data.remote.GeminiApiService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,7 +27,7 @@ class ChatRepository(
     private val database = AppDatabase.getInstance(context)
     private val chatDao = database.chatDao()
 
-    private val geminiService = GeminiService(
+    private val geminiApiService = GeminiApiService(
         getApiKey = { preferencesManager.apiKey },
         getModelName = { preferencesManager.modelName },
         getSystemInstruction = { preferencesManager.systemInstruction }
@@ -133,11 +133,11 @@ class ChatRepository(
         attachments: List<Attachment>,
         prompt: String
     ): Flow<String> {
-        return geminiService.streamChatResponse(history, attachments, prompt)
+        return geminiApiService.streamChatResponse(history, attachments, prompt)
     }
 
     suspend fun generateFollowUpSuggestions(history: List<ChatMessage>): List<String> {
-        return geminiService.generateFollowUpSuggestions(history)
+        return geminiApiService.generateSuggestions(history)
     }
 
     suspend fun exportTranscript(sessionId: String, format: String): String = withContext(Dispatchers.IO) {

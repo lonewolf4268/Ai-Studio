@@ -184,21 +184,21 @@ private fun parseMarkdownInline(text: String, defaultColor: Color): AnnotatedStr
                 // Links ([text](url))
                 text[i] == '[' -> {
                     val closeBracket = text.indexOf(']', i + 1)
-                    val openParen = text.indexOf('(', closeBracket)
-                    val closeParen = text.indexOf(')', openParen)
-
-                    if (closeBracket != -1 && openParen == closeBracket + 1 && closeParen != -1) {
-                        val label = text.substring(i + 1, closeBracket)
-                        withStyle(
-                            SpanStyle(
-                                color = Color(0xFF3B82F6),
-                                textDecoration = TextDecoration.Underline
-                            )
-                        ) {
-                            append(label)
+                    if (closeBracket != -1 && closeBracket + 1 < len && text[closeBracket + 1] == '(') {
+                        val closeParen = text.indexOf(')', closeBracket + 2)
+                        if (closeParen != -1) {
+                            val label = text.substring(i + 1, closeBracket)
+                            withStyle(
+                                SpanStyle(
+                                    color = Color(0xFF3B82F6),
+                                    textDecoration = TextDecoration.Underline
+                                )
+                            ) {
+                                append(label)
+                            }
+                            i = closeParen + 1
+                            continue
                         }
-                        i = closeParen + 1
-                        continue
                     }
                 }
             }

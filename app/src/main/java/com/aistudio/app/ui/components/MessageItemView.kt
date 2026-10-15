@@ -417,9 +417,11 @@ private fun RenderMarkdownContent(
                             )
                         }
                     } else {
-                        val lines = segment.trim().lines()
-                        val lang = if (lines.isNotEmpty() && lines[0].all { it.isLetterOrDigit() }) lines[0] else "code"
-                        val codeContent = if (lang != "code" && lines.size > 1) lines.drop(1).joinToString("\n") else segment
+                        val lines = segment.lines()
+                        val firstLine = lines.firstOrNull()?.trim() ?: ""
+                        val isLang = firstLine.isNotBlank() && firstLine.length <= 15 && firstLine.all { it.isLetterOrDigit() || it == '+' || it == '#' || it == '-' }
+                        val lang = if (isLang) firstLine else "code"
+                        val codeContent = if (isLang && lines.size > 1) lines.drop(1).joinToString("\n") else segment
 
                         CodeBlockView(language = lang, code = codeContent)
                     }

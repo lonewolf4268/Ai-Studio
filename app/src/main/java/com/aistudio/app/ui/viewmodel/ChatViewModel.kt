@@ -250,9 +250,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     val currentText = accumulated.toString()
                     _uiState.update { it.copy(streamingText = currentText, isLoading = false) }
 
-                    // Periodically persist streaming chunks to Room database (every 150ms)
+                    // Periodically persist streaming chunks as crash safeguard (every 1500ms)
                     val now = System.currentTimeMillis()
-                    if (now - lastDbSaveTime >= 150) {
+                    if (now - lastDbSaveTime >= 1500) {
                         lastDbSaveTime = now
                         repository.saveMessage(initialAiMessage.copy(message = currentText))
                     }
@@ -262,16 +262,36 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val aiMessage = initialAiMessage.copy(message = finalAiMessageText)
                 repository.saveMessage(aiMessage)
 
+                // Pre-update memory state so there is never a race condition with DB read
+                _uiState.update { state ->
+                    val updated = state.messages.map { if (it.id == aiMessageId) aiMessage else it }
+                    state.copy(
+                        messages = if (updated.any { it.id == aiMessageId }) updated else (updated + aiMessage)
+                    )
+                }
+
                 // Generate quick follow-up suggestions in background and persist
                 val suggestions = repository.generateFollowUpSuggestions(fullHistory + aiMessage)
                 if (suggestions.isNotEmpty()) {
-                    repository.saveMessage(aiMessage.copy(suggestions = suggestions))
+                    val messageWithSuggestions = aiMessage.copy(suggestions = suggestions)
+                    repository.saveMessage(messageWithSuggestions)
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages.map { if (it.id == aiMessageId) messageWithSuggestions else it }
+                        )
+                    }
                 }
 
             } catch (e: Exception) {
                 if (accumulated.isNotEmpty()) {
-                    val partialAiMessage = initialAiMessage.copy(message = accumulated.toString())
+                    val interruptedText = accumulated.toString() + "\n\n⚠️ *[Response interrupted: ${e.message ?: "Connection lost"}]*"
+                    val partialAiMessage = initialAiMessage.copy(message = interruptedText)
                     repository.saveMessage(partialAiMessage)
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages.map { if (it.id == aiMessageId) partialAiMessage else it }
+                        )
+                    }
                 } else {
                     val rawErr = e.message ?: ""
                     val currentKey = preferencesManager.apiKey.trim()
@@ -336,6 +356,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         createdAt = existing?.createdAt ?: stopNow
                     )
                     repository.saveMessage(stoppedMsg)
+                    _uiState.update { state ->
+                        state.copy(
+                            messages = state.messages.map { if (it.id == curId) stoppedMsg else it }
+                        )
+                    }
                 } else {
                     repository.deleteMessage(curId)
                 }
