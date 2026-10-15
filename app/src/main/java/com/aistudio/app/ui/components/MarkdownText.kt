@@ -1,8 +1,6 @@
 package com.aistudio.app.ui.components
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,7 +31,7 @@ fun MarkdownText(
 ) {
     val lines = markdown.lines()
 
-    Column(modifier = modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
         var isInList = false
 
         for (line in lines) {
@@ -75,7 +73,9 @@ fun MarkdownText(
                 trimmed.startsWith("* ") || trimmed.startsWith("- ") -> {
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
                     ) {
                         Text(
                             text = "• ",
@@ -86,31 +86,37 @@ fun MarkdownText(
                         Text(
                             text = parseMarkdownInline(trimmed.substring(2), textColor),
                             fontSize = fontSize,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
                         )
                     }
                 }
-                // Numbered List (e.g. "1. ")
-                trimmed.matches(Regex("^\\d+\\.\\s.*")) -> {
+                // Numbered List (e.g. "1. " or "1. item")
+                trimmed.matches(Regex("^\\d+\\.\\s*.*")) -> {
                     val dotIdx = trimmed.indexOf('.')
                     val num = trimmed.substring(0, dotIdx + 1)
                     val content = trimmed.substring(dotIdx + 1).trim()
 
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier = Modifier.padding(start = 8.dp, top = 2.dp, bottom = 2.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
                     ) {
                         Text(
-                            text = "$num ",
+                            text = if (content.isNotBlank()) "$num " else num,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Bold,
                             fontSize = fontSize
                         )
-                        Text(
-                            text = parseMarkdownInline(content, textColor),
-                            fontSize = fontSize,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        if (content.isNotBlank()) {
+                            Text(
+                                text = parseMarkdownInline(content, textColor),
+                                fontSize = fontSize,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
                 // Regular Paragraph line
@@ -120,7 +126,9 @@ fun MarkdownText(
                             text = parseMarkdownInline(trimmed, textColor),
                             fontSize = fontSize,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 1.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 1.dp)
                         )
                     }
                 }
@@ -163,9 +171,16 @@ private fun parseMarkdownInline(text: String, defaultColor: Color): AnnotatedStr
                         continue
                     }
                 }
-                // Inline Code (`code`)
-                text[i] == '`' -> {
-                    val endIdx = text.indexOf('`', i + 1)
+                // Inline Code (`code`, ‘code’, `code', etc.)
+                text[i] == '`' || text[i] == '‘' || text[i] == '´' -> {
+                    var endIdx = -1
+                    for (k in i + 1 until len) {
+                        val ch = text[k]
+                        if (ch == '`' || ch == '’' || ch == '\'' || ch == '´') {
+                            endIdx = k
+                            break
+                        }
+                    }
                     if (endIdx != -1) {
                         val codeText = text.substring(i + 1, endIdx)
                         withStyle(

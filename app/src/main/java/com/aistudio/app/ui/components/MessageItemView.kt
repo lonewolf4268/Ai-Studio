@@ -151,7 +151,7 @@ fun MessageItemView(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .padding(vertical = 4.dp)
-                    .widthIn(max = 320.dp)
+                    .fillMaxWidth()
             ) {
                 items(message.attachments) { att ->
                     val isImage = att.mimeType.startsWith("image/") || att.base64Data != null || att.uri.startsWith("camera://")
@@ -190,26 +190,43 @@ fun MessageItemView(
         }
 
         // Message Bubble with Long-Press to Copy
-        Surface(
-            shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
-                bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
-            ),
-            color = when {
-                isAppError -> MaterialTheme.colorScheme.errorContainer
-                isUser -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.surfaceVariant
-            },
-            modifier = Modifier
-                .widthIn(max = 340.dp)
-                .combinedClickable(
-                    onClick = {},
-                    onLongClick = { copyToClipboard() }
-                )
+        val hasCodeBlock = message.message.contains("```")
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
         ) {
-            Column(modifier = Modifier.padding(12.dp)) {
+            val maxBubbleWidth = if (isUser && !hasCodeBlock) maxWidth * 0.90f else maxWidth
+            Surface(
+                shape = RoundedCornerShape(
+                    topStart = 16.dp,
+                    topEnd = 16.dp,
+                    bottomStart = if (isUser) 16.dp else 4.dp,
+                    bottomEnd = if (isUser) 4.dp else 16.dp
+                ),
+                color = when {
+                    isAppError -> MaterialTheme.colorScheme.errorContainer
+                    isUser -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.surfaceVariant
+                },
+                modifier = Modifier
+                    .widthIn(min = 44.dp, max = maxBubbleWidth)
+                    .then(
+                        if (!isUser || hasCodeBlock) {
+                            Modifier.fillMaxWidth()
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { copyToClipboard() }
+                    )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .then(if (!isUser || hasCodeBlock) Modifier.fillMaxWidth() else Modifier)
+                        .padding(12.dp)
+                ) {
                 if (isEditing) {
                     OutlinedTextField(
                         value = editInputText,
@@ -260,6 +277,7 @@ fun MessageItemView(
                 }
             }
         }
+    }
 
         // Action Toolbar (Copy, Reactions, Retry, Edit)
         if (!isStreaming) {
@@ -402,18 +420,22 @@ private fun RenderMarkdownContent(
         return
     }
 
-    Column {
+    Column(modifier = Modifier.fillMaxWidth()) {
         if (markdown.contains("```")) {
             // Code blocks are present: render Markdown sections and code blocks with syntax styling
             val segments = markdown.split("```")
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
                 segments.forEachIndexed { index, segment ->
                     if (index % 2 == 0) {
                         if (segment.isNotBlank()) {
                             MarkdownText(
                                 markdown = segment.trim(),
                                 textColor = textColor,
-                                fontSize = 14.sp
+                                fontSize = 14.sp,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     } else {
@@ -427,7 +449,11 @@ private fun RenderMarkdownContent(
                             segment
                         }
 
-                        CodeBlockView(language = lang, code = codeContent)
+                        CodeBlockView(
+                            language = lang,
+                            code = codeContent,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -436,7 +462,8 @@ private fun RenderMarkdownContent(
             MarkdownText(
                 markdown = markdown,
                 textColor = textColor,
-                fontSize = 14.sp
+                fontSize = 14.sp,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 

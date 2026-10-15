@@ -3,6 +3,7 @@ package com.aistudio.app.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,7 +30,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -684,13 +688,17 @@ fun CodeBlockView(
         (1..linesCount).joinToString("\n")
     }
 
+    val coroutineScope = rememberCoroutineScope()
+    val horizontalScrollState = rememberScrollState()
+    val verticalScrollState = rememberScrollState()
+
     Surface(
         shape = RoundedCornerShape(10.dp),
         color = SyntaxTheme.Background,
         border = BorderStroke(1.dp, SyntaxTheme.Border),
         modifier = modifier.fillMaxWidth()
     ) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
             // Header bar
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -729,37 +737,64 @@ fun CodeBlockView(
                     }
                 }
 
-                // Copy button
-                TextButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Code", cleanedCode))
-                        isCodeCopied = true
-                        Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
-                    },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    modifier = Modifier.height(28.dp)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
-                        contentDescription = "Copy code",
-                        tint = if (isCodeCopied) Color(0xFF81C784) else Color(0xFFC9D1D9),
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isCodeCopied) "Copied" else "Copy",
-                        color = if (isCodeCopied) Color(0xFF81C784) else Color(0xFFC9D1D9),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (horizontalScrollState.value > 0) {
+                        TextButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    horizontalScrollState.animateScrollTo(0)
+                                }
+                            },
+                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
+                            modifier = Modifier.height(28.dp)
+                        ) {
+                            Text(
+                                text = "◀ Start",
+                                color = Color(0xFF9CDCFE),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    // Copy button
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("Code", cleanedCode))
+                            isCodeCopied = true
+                            Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
+                        },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
+                            contentDescription = "Copy code",
+                            tint = if (isCodeCopied) Color(0xFF81C784) else Color(0xFFC9D1D9),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isCodeCopied) "Copied" else "Copy",
+                            color = if (isCodeCopied) Color(0xFF81C784) else Color(0xFFC9D1D9),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 
-            // Code Content + Line Numbers
+            // Code Content + Line Numbers with synchronized scrolling
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(verticalScrollState)
                     .padding(vertical = 8.dp)
             ) {
                 // Line numbers gutter for multi-line code
@@ -767,7 +802,7 @@ fun CodeBlockView(
                     Box(
                         modifier = Modifier
                             .background(SyntaxTheme.GutterBg)
-                            .padding(horizontal = 10.dp)
+                            .padding(start = 8.dp, end = 8.dp)
                     ) {
                         Text(
                             text = lineNumbersText,
@@ -778,7 +813,7 @@ fun CodeBlockView(
                             textAlign = TextAlign.End
                         )
                     }
-                    // Subtle vertical separator
+                    // Vertical separator
                     Box(
                         modifier = Modifier
                             .width(1.dp)
@@ -787,18 +822,19 @@ fun CodeBlockView(
                     )
                 }
 
-                // Horizontally scrollable code text
+                // Horizontally scrollable code text with proper Row weight and no soft wrap
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .weight(1f)
                         .padding(horizontal = 10.dp)
-                        .horizontalScroll(rememberScrollState())
+                        .horizontalScroll(horizontalScrollState)
                 ) {
                     Text(
                         text = highlightedCode,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
-                        lineHeight = 18.sp
+                        lineHeight = 18.sp,
+                        softWrap = false
                     )
                 }
             }
