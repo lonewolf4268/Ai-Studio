@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -27,6 +29,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +42,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun MessageItemView(
     message: ChatMessage,
+    isStreaming: Boolean = false,
     onRetry: () -> Unit,
     onEdit: (String) -> Unit,
     onDelete: () -> Unit,
@@ -98,6 +102,41 @@ fun MessageItemView(
                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                 color = if (isAppError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
+            if (isStreaming && !isUser) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    modifier = Modifier.padding(vertical = 1.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                        val dotAlpha by infiniteTransition.animateFloat(
+                            initialValue = 0.3f,
+                            targetValue = 1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(600, easing = LinearEasing),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "dotAlpha"
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = dotAlpha), CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Streaming...",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = message.timestamp,
@@ -203,7 +242,8 @@ fun MessageItemView(
                     RenderMarkdownContent(
                         markdown = message.message,
                         isUser = isUser,
-                        isError = isAppError
+                        isError = isAppError,
+                        isStreaming = isStreaming
                     )
 
                     if (isAppError && onOpenSettings != null && (message.message.contains("API Key", ignoreCase = true) || message.message.contains("Settings", ignoreCase = true))) {
@@ -222,11 +262,12 @@ fun MessageItemView(
         }
 
         // Action Toolbar (Copy, Reactions, Retry, Edit)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
-        ) {
+        if (!isStreaming) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
+            ) {
             // Enhanced Copy Button with Visual Feedback
             IconButton(
                 onClick = copyToClipboard,
@@ -320,6 +361,7 @@ fun MessageItemView(
                 )
             }
         }
+    }
 
         // Quick suggestions chips
         if (message.suggestions.isNotEmpty()) {
@@ -346,7 +388,8 @@ fun MessageItemView(
 private fun RenderMarkdownContent(
     markdown: String,
     isUser: Boolean,
-    isError: Boolean
+    isError: Boolean,
+    isStreaming: Boolean = false
 ) {
     val textColor = when {
         isError -> MaterialTheme.colorScheme.onErrorContainer
@@ -354,36 +397,137 @@ private fun RenderMarkdownContent(
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    if (markdown.contains("```")) {
-        // Code blocks are present: render Markdown sections and code blocks with syntax styling
-        val segments = markdown.split("```")
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            segments.forEachIndexed { index, segment ->
-                if (index % 2 == 0) {
-                    if (segment.isNotBlank()) {
-                        MarkdownText(
-                            markdown = segment.trim(),
-                            textColor = textColor,
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    val lines = segment.trim().lines()
-                    val lang = if (lines.isNotEmpty() && lines[0].all { it.isLetterOrDigit() }) lines[0] else "code"
-                    val codeContent = if (lang != "code" && lines.size > 1) lines.drop(1).joinToString("\n") else segment
+    if (isStreaming && (markdown.isBlank() || markdown.trim() == "Thinking...")) {
+        TypingDotsIndicator(color = MaterialTheme.colorScheme.primary)
+        return
+    }
 
-                    CodeBlockView(language = lang, code = codeContent)
+    Column {
+        if (markdown.contains("```")) {
+            // Code blocks are present: render Markdown sections and code blocks with syntax styling
+            val segments = markdown.split("```")
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                segments.forEachIndexed { index, segment ->
+                    if (index % 2 == 0) {
+                        if (segment.isNotBlank()) {
+                            MarkdownText(
+                                markdown = segment.trim(),
+                                textColor = textColor,
+                                fontSize = 14.sp
+                            )
+                        }
+                    } else {
+                        val lines = segment.trim().lines()
+                        val lang = if (lines.isNotEmpty() && lines[0].all { it.isLetterOrDigit() }) lines[0] else "code"
+                        val codeContent = if (lang != "code" && lines.size > 1) lines.drop(1).joinToString("\n") else segment
+
+                        CodeBlockView(language = lang, code = codeContent)
+                    }
                 }
             }
+        } else {
+            // Render full markdown text including bold, lists, links, headers
+            MarkdownText(
+                markdown = markdown,
+                textColor = textColor,
+                fontSize = 14.sp
+            )
         }
-    } else {
-        // Render full markdown text including bold, lists, links, headers
-        MarkdownText(
-            markdown = markdown,
-            textColor = textColor,
-            fontSize = 14.sp
+
+        if (isStreaming) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 3.dp)
+            ) {
+                BlinkingCursor(color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
+
+@Composable
+fun TypingDotsIndicator(color: Color = MaterialTheme.colorScheme.primary) {
+    val infiniteTransition = rememberInfiniteTransition(label = "dots")
+    val dot1Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, easing = EaseInOutQuad),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot1"
+    )
+    val dot2Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, delayMillis = 140, easing = EaseInOutQuad),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot2"
+    )
+    val dot3Offset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(400, delayMillis = 280, easing = EaseInOutQuad),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "dot3"
+    )
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(horizontal = 2.dp, vertical = 6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(y = dot1Offset.dp)
+                .size(6.dp)
+                .background(color, CircleShape)
+        )
+        Box(
+            modifier = Modifier
+                .offset(y = dot2Offset.dp)
+                .size(6.dp)
+                .background(color, CircleShape)
+        )
+        Box(
+            modifier = Modifier
+                .offset(y = dot3Offset.dp)
+                .size(6.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = "Thinking...",
+            fontSize = 13.sp,
+            color = color.copy(alpha = 0.85f),
+            fontStyle = FontStyle.Italic
         )
     }
+}
+
+@Composable
+fun BlinkingCursor(color: Color = MaterialTheme.colorScheme.primary) {
+    val infiniteTransition = rememberInfiniteTransition(label = "cursor")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(450, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "cursorAlpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .padding(start = 2.dp)
+            .size(width = 8.dp, height = 15.dp)
+            .background(color.copy(alpha = alpha), RoundedCornerShape(2.dp))
+    )
 }
 
 @Composable

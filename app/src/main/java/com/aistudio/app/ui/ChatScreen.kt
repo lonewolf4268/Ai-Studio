@@ -359,13 +359,15 @@ fun ChatScreen(
                     ) {
                         // Render historical and active messages from Room database
                         items(uiState.messages, key = { it.id }) { msg ->
-                            val displayMsg = if (msg.id == uiState.streamingMessageId && uiState.streamingText.isNotBlank()) {
+                            val isMsgStreaming = uiState.isStreaming && msg.id == uiState.streamingMessageId
+                            val displayMsg = if (isMsgStreaming && uiState.streamingText.isNotBlank()) {
                                 msg.copy(message = uiState.streamingText)
                             } else {
                                 msg
                             }
                             MessageItemView(
                                 message = displayMsg,
+                                isStreaming = isMsgStreaming,
                                 onRetry = { viewModel.retryMessage(msg.id) },
                                 onEdit = { newText -> viewModel.editMessage(msg.id, newText) },
                                 onDelete = { viewModel.deleteMessage(msg.id) },
@@ -390,6 +392,7 @@ fun ChatScreen(
                                 )
                                 MessageItemView(
                                     message = tempMsg,
+                                    isStreaming = true,
                                     onRetry = {},
                                     onEdit = {},
                                     onDelete = {},
