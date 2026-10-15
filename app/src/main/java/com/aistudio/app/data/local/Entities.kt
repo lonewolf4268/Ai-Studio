@@ -72,6 +72,8 @@ data class MessageEntity(
     val sender: String, // "YOU", "AI", "APP"
     val message: String,
     val timestamp: String,
+    @ColumnInfo(defaultValue = "0")
+    val createdAt: Long = System.currentTimeMillis(),
     val attachmentsJson: String,
     val reaction: String?,
     val suggestionsJson: String
@@ -113,6 +115,7 @@ data class MessageEntity(
             sender = senderEnum,
             message = message,
             timestamp = timestamp,
+            createdAt = if (createdAt > 0) createdAt else System.currentTimeMillis(),
             attachments = attachmentList,
             reaction = reaction,
             suggestions = suggestionList
@@ -142,6 +145,7 @@ data class MessageEntity(
                 sender = msg.sender.name,
                 message = msg.message,
                 timestamp = msg.timestamp,
+                createdAt = msg.createdAt,
                 attachmentsJson = attachArr.toString(),
                 reaction = msg.reaction,
                 suggestionsJson = suggArr.toString()

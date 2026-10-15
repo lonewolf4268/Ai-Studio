@@ -93,12 +93,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         "Welcome! I'm ready to assist you with writing, coding, summaries, and creative tasks."
                     )
                     val randomGreeting = welcomeMessages.random()
+                    val welcomeNow = System.currentTimeMillis()
                     val welcomeMsg = ChatMessage(
-                        id = "welcome-${System.currentTimeMillis()}",
+                        id = "welcome-$welcomeNow",
                         sessionId = sessionId,
                         sender = MessageSender.AI,
                         message = randomGreeting,
-                        timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                        timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(welcomeNow)),
+                        createdAt = welcomeNow
                     )
                     repository.saveMessage(welcomeMsg)
                 }
@@ -182,13 +184,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (finalPrompt.isBlank()) return
 
-        val timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val now = System.currentTimeMillis()
+        val timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(now))
         val userMessage = ChatMessage(
-            id = "user-${System.currentTimeMillis()}",
+            id = "user-$now",
             sessionId = currentSessionId,
             sender = MessageSender.YOU,
             message = finalPrompt,
             timestamp = timestamp,
+            createdAt = now,
             attachments = attachmentsToSend
         )
 
@@ -208,8 +212,9 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         attachments: List<Attachment>
     ) {
         activeStreamJob?.cancel()
-        val aiMessageId = "ai-${System.currentTimeMillis()}"
-        val timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val aiNow = System.currentTimeMillis().coerceAtLeast(userMsg.createdAt + 1)
+        val aiMessageId = "ai-$aiNow"
+        val timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(aiNow))
 
         _uiState.update {
             it.copy(
@@ -226,7 +231,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 sessionId = sessionId,
                 sender = MessageSender.AI,
                 message = "Thinking...",
-                timestamp = timestamp
+                timestamp = timestamp,
+                createdAt = aiNow
             )
             // Immediately persist initial AI message placeholder to Room database
             repository.saveMessage(initialAiMessage)
@@ -284,12 +290,14 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
 
+                    val errNow = System.currentTimeMillis().coerceAtLeast(aiNow + 1)
                     val errorMsg = ChatMessage(
-                        id = "err-${System.currentTimeMillis()}",
+                        id = "err-$errNow",
                         sessionId = sessionId,
                         sender = MessageSender.APP,
                         message = userFriendlyMsg,
-                        timestamp = timestamp
+                        timestamp = timestamp,
+                        createdAt = errNow
                     )
                     // Remove the placeholder if error occurred before any text was received
                     repository.deleteMessage(aiMessageId)
@@ -317,12 +325,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (curId != null) {
             viewModelScope.launch {
                 if (curText.isNotBlank()) {
+                    val existing = _uiState.value.messages.find { it.id == curId }
+                    val stopNow = System.currentTimeMillis()
                     val stoppedMsg = ChatMessage(
                         id = curId,
                         sessionId = sessionId,
                         sender = MessageSender.AI,
                         message = curText,
-                        timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                        timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(stopNow)),
+                        createdAt = existing?.createdAt ?: stopNow
                     )
                     repository.saveMessage(stoppedMsg)
                 } else {
@@ -368,9 +379,11 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         if (index == -1 || newText.isBlank()) return
 
         val originalMsg = currentList[index]
+        val editNow = System.currentTimeMillis()
         val editedMsg = originalMsg.copy(
             message = newText.trim(),
-            timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+            timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(editNow)),
+            createdAt = editNow
         )
 
         viewModelScope.launch {

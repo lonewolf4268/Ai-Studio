@@ -385,7 +385,8 @@ fun ChatScreen(
                                     sessionId = uiState.currentSessionId,
                                     sender = MessageSender.AI,
                                     message = if (uiState.streamingText.isNotBlank()) uiState.streamingText else "Thinking...",
-                                    timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+                                    timestamp = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                    createdAt = System.currentTimeMillis()
                                 )
                                 MessageItemView(
                                     message = tempMsg,

@@ -22,6 +22,7 @@ data class ChatMessage(
     val sender: MessageSender,
     val message: String,
     val timestamp: String,
+    val createdAt: Long = System.currentTimeMillis(),
     val attachments: List<Attachment> = emptyList(),
     val reaction: String? = null, // "thumbs-up" | "thumbs-down"
     val suggestions: List<String> = emptyList()

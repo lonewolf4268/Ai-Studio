@@ -23,10 +23,10 @@ interface ChatDao {
     @Query("DELETE FROM chat_sessions WHERE id = :sessionId")
     suspend fun deleteSessionById(sessionId: String)
 
-    @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC, id ASC")
+    @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY createdAt ASC, rowid ASC")
     fun getMessagesForSessionFlow(sessionId: String): Flow<List<MessageEntity>>
 
-    @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC, id ASC")
+    @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY createdAt ASC, rowid ASC")
     suspend fun getMessagesForSession(sessionId: String): List<MessageEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
