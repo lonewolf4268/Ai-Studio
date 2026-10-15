@@ -421,7 +421,11 @@ private fun RenderMarkdownContent(
                         val firstLine = lines.firstOrNull()?.trim() ?: ""
                         val isLang = firstLine.isNotBlank() && firstLine.length <= 15 && firstLine.all { it.isLetterOrDigit() || it == '+' || it == '#' || it == '-' }
                         val lang = if (isLang) firstLine else "code"
-                        val codeContent = if (isLang && lines.size > 1) lines.drop(1).joinToString("\n") else segment
+                        val codeContent = if (isLang) {
+                            if (lines.size > 1) lines.drop(1).joinToString("\n") else ""
+                        } else {
+                            segment
+                        }
 
                         CodeBlockView(language = lang, code = codeContent)
                     }
@@ -532,78 +536,7 @@ fun BlinkingCursor(color: Color = MaterialTheme.colorScheme.primary) {
     )
 }
 
-@Composable
-private fun CodeBlockView(language: String, code: String) {
-    val context = LocalContext.current
-    var isCodeCopied by remember { mutableStateOf(false) }
 
-    LaunchedEffect(isCodeCopied) {
-        if (isCodeCopied) {
-            delay(2000)
-            isCodeCopied = false
-        }
-    }
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Color(0xFF1E1E1E),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp)
-            ) {
-                Text(
-                    text = language.uppercase(),
-                    color = Color(0xFF9CDCFE),
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
-                )
-                TextButton(
-                    onClick = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("Code", code))
-                        isCodeCopied = true
-                        Toast.makeText(context, "Code copied to clipboard", Toast.LENGTH_SHORT).show()
-                    },
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
-                    modifier = Modifier.height(24.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isCodeCopied) Icons.Default.Check else Icons.Default.ContentCopy,
-                        contentDescription = "Copy code",
-                        tint = if (isCodeCopied) Color(0xFF81C784) else Color.LightGray,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isCodeCopied) "Copied" else "Copy Code",
-                        color = if (isCodeCopied) Color(0xFF81C784) else Color.LightGray,
-                        fontSize = 10.sp
-                    )
-                }
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-            ) {
-                Text(
-                    text = code,
-                    color = Color(0xFFD4D4D4),
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    lineHeight = 16.sp
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun MessageImageThumbnail(

@@ -172,7 +172,8 @@ private fun parseMarkdownInline(text: String, defaultColor: Color): AnnotatedStr
                             SpanStyle(
                                 fontFamily = FontFamily.Monospace,
                                 background = Color(0x33808080),
-                                color = defaultColor
+                                color = Color(0xFFE5C07B),
+                                fontWeight = FontWeight.SemiBold
                             )
                         ) {
                             append(" $codeText ")
