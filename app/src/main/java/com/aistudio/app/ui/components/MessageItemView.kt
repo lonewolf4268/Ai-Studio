@@ -191,11 +191,15 @@ fun MessageItemView(
 
         // Message Bubble with Long-Press to Copy
         val hasCodeBlock = message.message.contains("```")
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth(),
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = if (isUser) 56.dp else 0.dp,
+                    end = if (isUser) 0.dp else 24.dp
+                ),
             contentAlignment = if (isUser) Alignment.CenterEnd else Alignment.CenterStart
         ) {
-            val maxBubbleWidth = if (isUser && !hasCodeBlock) maxWidth * 0.90f else maxWidth
             Surface(
                 shape = RoundedCornerShape(
                     topStart = 16.dp,
@@ -209,12 +213,11 @@ fun MessageItemView(
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 },
                 modifier = Modifier
-                    .widthIn(min = 44.dp, max = maxBubbleWidth)
                     .then(
                         if (!isUser || hasCodeBlock) {
                             Modifier.fillMaxWidth()
                         } else {
-                            Modifier
+                            Modifier.wrapContentSize(Alignment.CenterEnd)
                         }
                     )
                     .combinedClickable(
@@ -224,8 +227,8 @@ fun MessageItemView(
             ) {
                 Column(
                     modifier = Modifier
-                        .then(if (!isUser || hasCodeBlock) Modifier.fillMaxWidth() else Modifier)
-                        .padding(12.dp)
+                        .then(if (!isUser || hasCodeBlock) Modifier.fillMaxWidth() else Modifier.wrapContentSize())
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                 ) {
                 if (isEditing) {
                     OutlinedTextField(
@@ -284,7 +287,11 @@ fun MessageItemView(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp)
+                modifier = Modifier.padding(
+                    top = 4.dp,
+                    start = if (isUser) 56.dp else 4.dp,
+                    end = if (isUser) 4.dp else 24.dp
+                )
             ) {
             // Enhanced Copy Button with Visual Feedback
             IconButton(

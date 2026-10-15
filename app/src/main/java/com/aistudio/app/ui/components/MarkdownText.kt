@@ -31,7 +31,7 @@ fun MarkdownText(
 ) {
     val lines = markdown.lines()
 
-    Column(modifier = modifier.fillMaxWidth()) {
+    Column(modifier = modifier) {
         var isInList = false
 
         for (line in lines) {
@@ -73,9 +73,7 @@ fun MarkdownText(
                 trimmed.startsWith("* ") || trimmed.startsWith("- ") -> {
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
+                        modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
                     ) {
                         Text(
                             text = "• ",
@@ -86,8 +84,7 @@ fun MarkdownText(
                         Text(
                             text = parseMarkdownInline(trimmed.substring(2), textColor),
                             fontSize = fontSize,
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
+                            style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
@@ -99,9 +96,7 @@ fun MarkdownText(
 
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
+                        modifier = Modifier.padding(start = 6.dp, top = 2.dp, bottom = 2.dp)
                     ) {
                         Text(
                             text = if (content.isNotBlank()) "$num " else num,
@@ -113,8 +108,7 @@ fun MarkdownText(
                             Text(
                                 text = parseMarkdownInline(content, textColor),
                                 fontSize = fontSize,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
+                                style = MaterialTheme.typography.bodyMedium
                             )
                         }
                     }
@@ -126,9 +120,7 @@ fun MarkdownText(
                             text = parseMarkdownInline(trimmed, textColor),
                             fontSize = fontSize,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 1.dp)
+                            modifier = Modifier.padding(vertical = 1.dp)
                         )
                     }
                 }
